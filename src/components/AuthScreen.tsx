@@ -114,8 +114,17 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
   };
 
   return (
-    <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', width: '100%', height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto', width: '100%', maxWidth: '400px', flexShrink: 0 }}>
+    <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', width: '100%', height: '100%', position: 'relative' }}>
+      {!isLoginMode && (
+        <button 
+          onClick={() => setIsLoginMode(true)}
+          style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-main)', background: 'var(--bg-color)', border: '1px solid var(--card-border)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+        >
+          <span className="material-icons-round" style={{ fontSize: '20px' }}>close</span>
+        </button>
+      )}
+      <div style={{ flex: 1, minHeight: '20px', flexShrink: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '0 auto', width: '100%', maxWidth: '400px', flexShrink: 0 }}>
         {isLoginMode && (
           <div className="auth-header">
             <img 
@@ -266,6 +275,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
           </div>
         )}
       </div>
+      <div style={{ flex: 1, minHeight: '40px', flexShrink: 0 }} />
     </div>
   );
 }

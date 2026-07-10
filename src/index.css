@@ -303,8 +303,6 @@ body {
 #auth-screen {
   background: var(--bg-color);
   padding: 40px 30px;
-  justify-content: center;
-  align-items: center;
 }
 
 .auth-header {
@@ -626,7 +624,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -776,7 +774,7 @@ body {
 }
 
 .metric-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 14px;
@@ -823,7 +821,7 @@ body {
 
 /* 차트 카드 */
 .card-chart {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -877,7 +875,7 @@ body {
    Statcast & Biomechanics
    ========================================================================== */
 .biomechanics-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -958,7 +956,7 @@ body {
    AI Stat Upload Card & Dropzone
    ========================================================================== */
 .file-upload-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1105,7 +1103,7 @@ body {
    Lifestyle & Concierge
    ========================================================================== */
 .lifestyle-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1284,7 +1282,7 @@ body {
    Business & Contract (TAB 2)
    ========================================================================== */
 .biz-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1481,7 +1479,7 @@ input[type="range"]::-webkit-slider-thumb {
    My Page (TAB 3)
    ========================================================================== */
 .mypage-card {
-  background: var(--bg-color);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 24px;
