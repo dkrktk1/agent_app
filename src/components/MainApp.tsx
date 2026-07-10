@@ -11,15 +11,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export default function MainApp({ currentUser, onLogout }: { currentUser: any, onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState('care');
-
-  useEffect(() => {
-    const handleTabChange = (e: any) => {
-      setActiveTab(e.detail);
-    };
-    window.addEventListener('changeTab', handleTabChange);
-    return () => window.removeEventListener('changeTab', handleTabChange);
-  }, []);
   const isAgent = currentUser.role === 'agent';
   const [allPlayers, setAllPlayers] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -27,6 +18,50 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
   const [activePlayerId, setActivePlayerId] = useState<string | null>(
     isAgent ? null : currentUser.userId
   );
+  
+  const [activeTab, setActiveTab] = useState('care');
+
+  const handleTabChangeClick = (tab: string) => {
+    if (activeTab === tab) return;
+    window.scrollTo(0, 0);
+    window.history.pushState({ tab, playerId: activePlayerId }, '');
+    setActiveTab(tab);
+  };
+
+  const handlePlayerChangeClick = (playerId: string | null) => {
+    if (activePlayerId === playerId) return;
+    window.scrollTo(0, 0);
+    window.history.pushState({ tab: activeTab, playerId }, '');
+    setActivePlayerId(playerId);
+  };
+
+  useEffect(() => {
+    const handleEventTabChange = (e: any) => {
+      const newTab = e.detail;
+      if (activeTab !== newTab) {
+        window.scrollTo(0, 0);
+        window.history.pushState({ tab: newTab, playerId: activePlayerId }, '');
+        setActiveTab(newTab);
+      }
+    };
+    window.addEventListener('changeTab', handleEventTabChange);
+    return () => window.removeEventListener('changeTab', handleEventTabChange);
+  }, [activeTab, activePlayerId]);
+
+  useEffect(() => {
+    window.history.replaceState({ tab: activeTab, playerId: activePlayerId }, '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state) {
+        if (e.state.tab) setActiveTab(e.state.tab);
+        if (e.state.playerId !== undefined) setActivePlayerId(e.state.playerId);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
 
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -257,7 +292,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
           <div 
             key={p.id || `player-${index}`} 
             className="player-summary-card cursor-pointer hover:border-[#00E5FF] transition-colors h-full mb-0" 
-            onClick={() => setActivePlayerId(p.id)}
+            onClick={() => handlePlayerChangeClick(p.id)}
           >
             <div className="summary-avatar-container">
               {p.profileImg ? (
@@ -326,10 +361,10 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       </header>
 
       <main className="app-content">
-        {(activeTab === 'care' || activeTab === 'biz' || activeTab === 'schedule') && activePlayerId && activePlayer && (
+        {(activeTab === 'care' || activeTab === 'medical' || activeTab === 'biz' || activeTab === 'schedule') && activePlayerId && activePlayer && (
           <div className="animate-fade-in flex flex-col gap-4">
             {isAgent && (
-              <button className="flex items-center text-[var(--text-muted)] hover:text-white transition-colors" onClick={() => setActivePlayerId(null)}>
+              <button className="flex items-center text-[var(--text-muted)] hover:text-white transition-colors" onClick={() => handlePlayerChangeClick(null)}>
                 <span className="material-icons-round mr-1">arrow_back</span>
                 <span>선수 목록으로 돌아가기</span>
               </button>
@@ -466,23 +501,23 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       </main>
 
       <nav className="bottom-nav">
-        <button className={`nav-item ${activeTab === 'care' ? 'active' : ''}`} onClick={() => setActiveTab('care')}>
+        <button className={`nav-item ${activeTab === 'care' ? 'active' : ''}`} onClick={() => handleTabChangeClick('care')}>
           <span className="material-icons-round">monitor_heart</span>
           <div className="text-[10px] leading-tight mt-1 font-medium">컨디션</div>
         </button>
-        <button className={`nav-item ${activeTab === 'medical' ? 'active' : ''}`} onClick={() => setActiveTab('medical')}>
+        <button className={`nav-item ${activeTab === 'medical' ? 'active' : ''}`} onClick={() => handleTabChangeClick('medical')}>
           <span className="material-icons-round">medical_services</span>
           <div className="text-[10px] leading-tight mt-1 font-medium">메디컬</div>
         </button>
-        <button className={`nav-item ${activeTab === 'biz' ? 'active' : ''}`} onClick={() => setActiveTab('biz')}>
+        <button className={`nav-item ${activeTab === 'biz' ? 'active' : ''}`} onClick={() => handleTabChangeClick('biz')}>
           <span className="material-icons-round">handshake</span>
           <div className="text-[10px] leading-tight mt-1 font-medium">비즈니스</div>
         </button>
-        <button className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => setActiveTab('schedule')}>
+        <button className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => handleTabChangeClick('schedule')}>
           <span className="material-icons-round">calendar_month</span>
           <div className="text-[10px] leading-tight mt-1 font-medium">일정</div>
         </button>
-        <button className={`nav-item ${activeTab === 'mypage' ? 'active' : ''}`} onClick={() => setActiveTab('mypage')}>
+        <button className={`nav-item ${activeTab === 'mypage' ? 'active' : ''}`} onClick={() => handleTabChangeClick('mypage')}>
           <span className="material-icons-round">person</span>
           <div className="text-[10px] leading-tight mt-1 font-medium">마이페이지</div>
         </button>

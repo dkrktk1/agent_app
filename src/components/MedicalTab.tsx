@@ -573,8 +573,11 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   const handleBodyPartPress = (bodyPart: any, side: "left" | "right" | undefined, viewSide: 'front' | 'back', isModal: boolean = false) => {
     const region = REGION_MAP[viewSide][bodyPart.slug];
     if (!region) return;
+    
+    const centralRegions = ['head', 'neck', 'chest', 'abs', 'upper-back', 'lower-back'];
+    const effectiveSide = centralRegions.includes(region) ? 'center' : (side || 'center');
   
-    const id = `${region}_${side || 'center'}_${viewSide}`;
+    const id = `${region}_${effectiveSide}_${viewSide}`;
     
     if (isModal) {
       if (isEditingModalMode) return;
