@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useModalHistory } from '../hooks/useModalHistory';
 import { getPartName } from '../utils';
 
 const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val: string) => void, label: string }) => {
@@ -54,6 +55,9 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEventOriginalIndex, setEditingEventOriginalIndex] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useModalHistory(isAddModalOpen, () => setIsAddModalOpen(false));
+  useModalHistory(showDeleteConfirm, () => setShowDeleteConfirm(false));
   const [newEventDate, setNewEventDate] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventPlace, setNewEventPlace] = useState('');

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useModalHistory } from '../hooks/useModalHistory';
 import { downloadSampleCSV } from '../utils';
 
 export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: any, isAgent: boolean, onUpdatePlayer: (data: any) => void, key?: string }) {
@@ -13,6 +14,9 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
 
   const [isSponsorshipModalOpen, setIsSponsorshipModalOpen] = useState(false);
   const [editingSponsorshipIndex, setEditingSponsorshipIndex] = useState<number | null>(null);
+  
+  useModalHistory(isInventoryModalOpen, () => setIsInventoryModalOpen(false));
+  useModalHistory(isSponsorshipModalOpen, () => setIsSponsorshipModalOpen(false));
   const [sponsDate, setSponsDate] = useState('');
   const [sponsCompany, setSponsCompany] = useState('');
   const [sponsName, setSponsName] = useState('');

@@ -540,10 +540,10 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex gap-2 mt-2 justify-center">
-          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#4ade80] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">최적 훈련 구간<br />(0.8 ~ 1.3)</span></div>
-          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#facc15] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">주의 요망<br />(1.3 ~ 1.5)</span></div>
-          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#ef4444] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">부상 위험 극대화<br />(1.5 이상)</span></div>
+        <div className="flex flex-wrap gap-x-3 gap-y-2 mt-3 justify-center">
+          <div className="flex items-start gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4ade80] opacity-50 shrink-0 mt-[4px]"></span><div className="text-[11px] sm:text-xs text-gray-400 flex flex-col leading-tight"><span className="whitespace-nowrap font-medium text-gray-300">최적 훈련 구간</span><span className="whitespace-nowrap">(0.8 ~ 1.3)</span></div></div>
+          <div className="flex items-start gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#facc15] opacity-50 shrink-0 mt-[4px]"></span><div className="text-[11px] sm:text-xs text-gray-400 flex flex-col leading-tight"><span className="whitespace-nowrap font-medium text-gray-300">주의 요망</span><span className="whitespace-nowrap">(1.3 ~ 1.5)</span></div></div>
+          <div className="flex items-start gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] opacity-50 shrink-0 mt-[4px]"></span><div className="text-[11px] sm:text-xs text-gray-400 flex flex-col leading-tight"><span className="whitespace-nowrap font-medium text-gray-300">부상 위험 극대화</span><span className="whitespace-nowrap">(1.5 이상)</span></div></div>
         </div>
       </div>
       <div className="card-chart">

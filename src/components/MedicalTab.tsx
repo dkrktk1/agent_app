@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useModalHistory } from '../hooks/useModalHistory';
 import { Body } from 'react-body-selector';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
@@ -134,6 +135,10 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
   const [historyModalPart, setHistoryModalPart] = useState<string | null>(null);
+  
+  useModalHistory(showPainModal, () => setShowPainModal(false));
+  useModalHistory(showHistoryModal, () => setShowHistoryModal(false));
+  useModalHistory(confirmModal.isOpen, () => setConfirmModal({ isOpen: false, id: null }));
   const [hoveredGraphPart, setHoveredGraphPart] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -233,6 +238,12 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   const [expandedPastItemId, setExpandedPastItemId] = useState<string | null>(null);
 
   const [showPastPainModal, setShowPastPainModal] = useState(false);
+  
+  useModalHistory(showTimelineModal, () => setShowTimelineModal(false));
+  useModalHistory(timelineConfirmModal.isOpen, () => setTimelineConfirmModal({ isOpen: false, id: null }));
+  useModalHistory(showCustomTimeModal, () => setShowCustomTimeModal(false));
+  useModalHistory(showPastTimelineModal, () => setShowPastTimelineModal(false));
+  useModalHistory(showPastPainModal, () => setShowPastPainModal(false));
   const [pastPainYear, setPastPainYear] = useState<string>(new Date().getFullYear().toString());
   const [pastPainMonth, setPastPainMonth] = useState<string>('all');
   const [expandedPastPainId, setExpandedPastPainId] = useState<string | null>(null);
@@ -1246,12 +1257,15 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                           >
                             부상 기록 관리
                           </button>
-                          <div className="flex items-center gap-1.5 text-[14px] font-semibold text-gray-400">
+                          <div className="flex items-start justify-end sm:items-center gap-1.5 text-[13px] sm:text-[14px] font-semibold text-gray-400 mt-1 sm:mt-0">
                             <span 
-                              className="w-2.5 h-2.5 rounded-full shrink-0" 
+                              className="w-2.5 h-2.5 rounded-full shrink-0 mt-[3px] sm:mt-0" 
                               style={{ backgroundColor: getPainColor(item.level) }}
                             />
-                            <span>{item.level}단계({getPainLevelText(item.level)})</span>
+                            <div className="flex flex-col sm:flex-row sm:gap-1 text-right sm:text-left leading-tight sm:leading-normal">
+                              <span>{item.level}단계</span>
+                              <span>({getPainLevelText(item.level)})</span>
+                            </div>
                           </div>
                         </div>
                       </div>
