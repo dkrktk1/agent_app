@@ -468,23 +468,23 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       <nav className="bottom-nav">
         <button className={`nav-item ${activeTab === 'care' ? 'active' : ''}`} onClick={() => setActiveTab('care')}>
           <span className="material-icons-round">monitor_heart</span>
-          <span>컨디션</span>
+          <div className="text-[10px] leading-tight mt-1 font-medium">컨디션</div>
         </button>
         <button className={`nav-item ${activeTab === 'medical' ? 'active' : ''}`} onClick={() => setActiveTab('medical')}>
           <span className="material-icons-round">medical_services</span>
-          <span>메디컬</span>
+          <div className="text-[10px] leading-tight mt-1 font-medium">메디컬</div>
         </button>
         <button className={`nav-item ${activeTab === 'biz' ? 'active' : ''}`} onClick={() => setActiveTab('biz')}>
           <span className="material-icons-round">handshake</span>
-          <span>비즈니스</span>
+          <div className="text-[10px] leading-tight mt-1 font-medium">비즈니스</div>
         </button>
         <button className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => setActiveTab('schedule')}>
           <span className="material-icons-round">calendar_month</span>
-          <span>일정</span>
+          <div className="text-[10px] leading-tight mt-1 font-medium">일정</div>
         </button>
         <button className={`nav-item ${activeTab === 'mypage' ? 'active' : ''}`} onClick={() => setActiveTab('mypage')}>
           <span className="material-icons-round">person</span>
-          <span>마이페이지</span>
+          <div className="text-[10px] leading-tight mt-1 font-medium">마이페이지</div>
         </button>
       </nav>
     </div>

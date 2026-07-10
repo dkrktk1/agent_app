@@ -502,7 +502,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       gluteal: 'glutes',
       hamstring: 'hamstrings',
       calves: 'calves',
-      feet: 'feet',
+      feet: 'achilles',
       ankles: 'achilles'
     }
   };
@@ -537,8 +537,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       glutes: ['gluteal'],
       hamstrings: ['hamstring'],
       calves: ['calves'],
-      feet: ['feet'],
-      achilles: ['ankles']
+      achilles: ['ankles', 'feet']
     }
   };
 
@@ -578,7 +577,6 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     const id = `${region}_${side || 'center'}_${viewSide}`;
     
     if (isModal) {
-      if (viewSide === 'back' && bodyPart.slug === 'feet') return;
       if (isEditingModalMode) return;
       setSelectedPart(id);
       return;
@@ -747,13 +745,22 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   return (
     <div className="tab-pane active pb-24 text-white">
       
-      <div className="section-title-group flex flex-col items-end gap-3 mb-6">
-        <div className="flex justify-between items-end w-full">
+      <div className="section-title-group flex justify-between items-end mb-6">
+        <div>
           <h3>부상 관리</h3>
+        </div>
+        <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <button 
+            onClick={() => setShowPastPainModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            과거 부상 내역 보기
+          </button>
           {isAgent && (
             <button 
               onClick={handlePainInputClick}
-              className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity self-center"
+              className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity"
             >
               <div className="w-5 h-5 rounded-full bg-[var(--primary-color)] text-[#050608] flex items-center justify-center">
                 <span className="material-icons-round text-[16px] font-bold">add</span>
@@ -762,13 +769,6 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
             </button>
           )}
         </div>
-        <button 
-          onClick={() => setShowPastPainModal(true)}
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-        >
-          <span className="material-icons-round text-[18px]">history</span>
-          과거 부상 내역 보기
-        </button>
       </div>
 
       {/* TOP CARD: Body Map & Current Pain List */}
@@ -1314,13 +1314,22 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       </div>
       </div>
       {/* BOTTOM CARD: Care CRM Timeline */}
-      <div className="section-title-group flex flex-col items-end gap-3 mb-6">
-        <div className="flex justify-between items-end w-full">
+      <div className="section-title-group flex justify-between items-end mb-6">
+        <div>
           <h3 className="flex items-center gap-3">진료 일정</h3>
+        </div>
+        <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <button 
+            onClick={() => setShowPastTimelineModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            지난 진료 기록 보기
+          </button>
           {isAgent && (
             <button 
               onClick={handleAddTimelineClick}
-              className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity self-center"
+              className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity"
             >
               <div className="w-5 h-5 rounded-full bg-[var(--primary-color)] text-[#050608] flex items-center justify-center">
                 <span className="material-icons-round text-[16px] font-bold">add</span>
@@ -1329,13 +1338,6 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
             </button>
           )}
         </div>
-        <button 
-          onClick={() => setShowPastTimelineModal(true)}
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-        >
-          <span className="material-icons-round text-[18px]">history</span>
-          지난 진료 기록 보기
-        </button>
       </div>
 
       <div className="card-chart mb-8">
