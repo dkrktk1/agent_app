@@ -124,8 +124,8 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
   };
 
   return (
-    <div className="auth-screen">
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1, padding: '40px 20px', overflowY: 'hidden' }}>
+    <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', width: '100%', height: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1 }}>
         {isLoginMode && (
           <div className="auth-header">
             <img 
@@ -232,9 +232,12 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                     <option value="좌투양타" className="text-black">좌투양타 (스위치)</option>
                   </select>
                 </div>
-                <div className="input-group">
-                  <span className="material-icons-round">calendar_today</span>
-                  <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>생년월일</label>
+                  <div className="input-group" style={{ marginBottom: 0 }}>
+                    <span className="material-icons-round">calendar_today</span>
+                    <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required />
+                  </div>
                 </div>
                 <div className="input-group">
                   <span className="material-icons-round">payments</span>
