@@ -313,8 +313,6 @@ body {
       var(--bg-color)
     );
   padding: 40px 30px;
-  justify-content: center;
-  align-items: center;
 }
 
 .auth-header {
