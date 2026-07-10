@@ -146,8 +146,8 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
   const gripChartRef = useRef<HTMLCanvasElement>(null);
 
   const [logRpe, setLogRpe] = useState(7);
-  const [logDuration, setLogDuration] = useState(120);
-  const [logGrip, setLogGrip] = useState(player?.metrics?.gripRaw ?? 0);
+  const [logDuration, setLogDuration] = useState<number | string>(120);
+  const [logGrip, setLogGrip] = useState<number | string>(player?.metrics?.gripRaw ?? 0);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
 
@@ -156,8 +156,8 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
   const [gripRightBaseline, setGripRightBaseline] = useState(player?.gripChartData?.rightValues?.[0] ?? 0);
   const [gripRightToday, setGripRightToday] = useState(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
 
-  const [logGripLeft, setLogGripLeft] = useState(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
-  const [logGripRight, setLogGripRight] = useState(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
+  const [logGripLeft, setLogGripLeft] = useState<number | string>(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
+  const [logGripRight, setLogGripRight] = useState<number | string>(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
   const [selectedHand, setSelectedHand] = useState<'left' | 'right'>('left');
 
   const rpeLabels: Record<number, string> = {
@@ -236,13 +236,17 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
   }, [player, selectedHand]);
 
   const submitDailyLog = () => {
-    setGripLeftToday(logGripLeft);
-    setGripRightToday(logGripRight);
-    const overallGrip = Number(((logGripLeft + logGripRight) / 2).toFixed(1));
+    const gl = Number(logGripLeft) || 0;
+    const gr = Number(logGripRight) || 0;
+    const dur = Number(logDuration) || 0;
+
+    setGripLeftToday(gl);
+    setGripRightToday(gr);
+    const overallGrip = Number(((gl + gr) / 2).toFixed(1));
 
     const base = player.metrics.gripBaseline;
     const dev = (((overallGrip - base) / base) * 100).toFixed(1);
-    const newLoad = logRpe * logDuration;
+    const newLoad = logRpe * dur;
     const curAcute = Math.round((player.acwrChartData.acute[2] * 6 + newLoad) / 7);
     const newAcwr = (curAcute / player.acwrChartData.chronic[3]).toFixed(2);
     
@@ -267,10 +271,10 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
     p.gripChartData.values.push(overallGrip);
     
     p.gripChartData.leftValues.shift();
-    p.gripChartData.leftValues.push(logGripLeft);
+    p.gripChartData.leftValues.push(gl);
     
     p.gripChartData.rightValues.shift();
-    p.gripChartData.rightValues.push(logGripRight);
+    p.gripChartData.rightValues.push(gr);
     
     if (!p.metrics) p.metrics = {};
     p.metrics.rpe = logRpe; 
@@ -310,11 +314,11 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
     if (existingIndex !== -1) {
       p.schedules[existingIndex].acwr = parseFloat(newAcwr);
       p.schedules[existingIndex].grip = overallGrip;
-      p.schedules[existingIndex].gripLeft = logGripLeft;
-      p.schedules[existingIndex].gripRight = logGripRight;
+      p.schedules[existingIndex].gripLeft = gl;
+      p.schedules[existingIndex].gripRight = gr;
       p.schedules[existingIndex].sleep = sleepDuration;
     } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', acwr: parseFloat(newAcwr), grip: overallGrip, gripLeft: logGripLeft, gripRight: logGripRight, sleep: sleepDuration });
+      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', acwr: parseFloat(newAcwr), grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration });
     }
 
     onUpdatePlayer(p); setIsDailyLogOpen(false); alert("오늘의 컨디셔닝 상태가 실시간 반영되었습니다!");
@@ -628,17 +632,17 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
 
               <div className="mb-0">
                 <label className="text-sm font-bold text-white mb-3 block">훈련 시간 (분)</label>
-                <input type="number" value={logDuration} onChange={e => setLogDuration(Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                <input type="number" value={logDuration} onChange={e => setLogDuration(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
               </div>
               
               <div className="mb-0 flex gap-3">
                 <div className="flex-1">
                   <label className="text-sm font-bold text-white mb-3 block">왼손 악력 (kg)</label>
-                  <input type="number" step="0.1" value={logGripLeft} onChange={e => setLogGripLeft(Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                  <input type="number" step="0.1" value={logGripLeft} onChange={e => setLogGripLeft(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
                 </div>
                 <div className="flex-1">
                   <label className="text-sm font-bold text-white mb-3 block">오른손 악력 (kg)</label>
-                  <input type="number" step="0.1" value={logGripRight} onChange={e => setLogGripRight(Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                  <input type="number" step="0.1" value={logGripRight} onChange={e => setLogGripRight(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
                 </div>
               </div>
 

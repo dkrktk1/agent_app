@@ -302,7 +302,28 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Object.values(allPlayers).map((p: any, index: number) => (
+        {Object.values(allPlayers).map((p: any, index: number) => {
+          const acwr = p.metrics?.acwr || 1.0;
+          const sleep = p.metrics?.sleep || 6.0;
+          
+          const leftValues = p.gripChartData?.leftValues || [];
+          const gripLeftToday = leftValues[leftValues.length - 1] || 50;
+          const gripLeftBaseline = leftValues[0] || 50;
+          const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
+          
+          const rightValues = p.gripChartData?.rightValues || [];
+          const gripRightToday = rightValues[rightValues.length - 1] || 50;
+          const gripRightBaseline = rightValues[0] || 50;
+          const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
+          
+          const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, false);
+          
+          let dotColorClass = 'bg-gray-500';
+          if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
+          else if (statusInfo.level === 3) dotColorClass = 'bg-yellow-500';
+          else if (statusInfo.level === 4) dotColorClass = 'bg-[#4ade80]';
+
+          return (
           <div 
             key={p.id || `player-${index}`} 
             className="player-summary-card cursor-pointer hover:border-[#00E5FF] transition-colors h-full mb-0" 
@@ -316,40 +337,21 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
                   <span className="material-icons-round text-[64px] text-[var(--text-muted)]">person</span>
                 </div>
               )}
-              <div className={`player-status-dot ${p.status}`}></div>
+              <div className={`player-status-dot ${dotColorClass}`}></div>
             </div>
             <div className="summary-info">
               <h2>{p.name}</h2>
               <p className="text-xs text-[var(--text-muted)] mb-1">{formatPlayerAge(p)}</p>
               <p className="text-xs text-[var(--text-muted)]">{formatPlayerDetails(p)}</p>
               <div className="player-badges mt-2">
-                {(() => {
-                  const acwr = p.metrics?.acwr || 1.0;
-                  const sleep = p.metrics?.sleep || 6.0;
-                  
-                  const leftValues = p.gripChartData?.leftValues || [];
-                  const gripLeftToday = leftValues[leftValues.length - 1] || 50;
-                  const gripLeftBaseline = leftValues[0] || 50;
-                  const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
-                  
-                  const rightValues = p.gripChartData?.rightValues || [];
-                  const gripRightToday = rightValues[rightValues.length - 1] || 50;
-                  const gripRightBaseline = rightValues[0] || 50;
-                  const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
-                  
-                  const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, false);
-                  
-                  return (
-                    <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
-                      <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
-                      {statusInfo.badgeText}
-                    </span>
-                  );
-                })()}
+                <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
+                  <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
+                  {statusInfo.badgeText}
+                </span>
               </div>
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );
@@ -383,48 +385,53 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
                 <span>선수 목록으로 돌아가기</span>
               </button>
             )}
-            <div className="player-summary-card">
-              <div className="summary-avatar-container">
-                {activePlayer.profileImg ? (
-                  <img src={activePlayer.profileImg} alt="선수" className="player-profile-img" />
-                ) : (
-                  <div className="player-profile-img flex items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)]">
-                    <span className="material-icons-round text-[64px] text-[var(--text-muted)]">person</span>
+            {(() => {
+              const acwr = activePlayer.metrics?.acwr || 1.0;
+              const sleep = activePlayer.metrics?.sleep || 6.0;
+              
+              const leftValues = activePlayer.gripChartData?.leftValues || [];
+              const gripLeftToday = leftValues[leftValues.length - 1] || 50;
+              const gripLeftBaseline = leftValues[0] || 50;
+              const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
+              
+              const rightValues = activePlayer.gripChartData?.rightValues || [];
+              const gripRightToday = rightValues[rightValues.length - 1] || 50;
+              const gripRightBaseline = rightValues[0] || 50;
+              const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
+              
+              const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, false);
+              
+              let dotColorClass = 'bg-gray-500';
+              if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
+              else if (statusInfo.level === 3) dotColorClass = 'bg-yellow-500';
+              else if (statusInfo.level === 4) dotColorClass = 'bg-[#4ade80]';
+
+              return (
+              <div className="player-summary-card">
+                <div className="summary-avatar-container">
+                  {activePlayer.profileImg ? (
+                    <img src={activePlayer.profileImg} alt="선수" className="player-profile-img" />
+                  ) : (
+                    <div className="player-profile-img flex items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)]">
+                      <span className="material-icons-round text-[64px] text-[var(--text-muted)]">person</span>
+                    </div>
+                  )}
+                  <div className={`player-status-dot ${dotColorClass}`}></div>
+                </div>
+                <div className="summary-info">
+                  <h2>{activePlayer.name}</h2>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">{formatPlayerAge(activePlayer)}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{formatPlayerDetails(activePlayer)}</p>
+                  <div className="player-badges mt-2">
+                    <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
+                      <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
+                      {statusInfo.badgeText}
+                    </span>
                   </div>
-                )}
-                <div className={`player-status-dot ${activePlayer.status}`}></div>
-              </div>
-              <div className="summary-info">
-                <h2>{activePlayer.name}</h2>
-                <p className="text-xs text-[var(--text-muted)] mb-1">{formatPlayerAge(activePlayer)}</p>
-                <p className="text-xs text-[var(--text-muted)]">{formatPlayerDetails(activePlayer)}</p>
-                <div className="player-badges mt-2">
-                  {(() => {
-                    const acwr = activePlayer.metrics?.acwr || 1.0;
-                    const sleep = activePlayer.metrics?.sleep || 6.0;
-                    
-                    const leftValues = activePlayer.gripChartData?.leftValues || [];
-                    const gripLeftToday = leftValues[leftValues.length - 1] || 50;
-                    const gripLeftBaseline = leftValues[0] || 50;
-                    const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
-                    
-                    const rightValues = activePlayer.gripChartData?.rightValues || [];
-                    const gripRightToday = rightValues[rightValues.length - 1] || 50;
-                    const gripRightBaseline = rightValues[0] || 50;
-                    const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
-                    
-                    const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, false);
-                    
-                    return (
-                      <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
-                        <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
-                        {statusInfo.badgeText}
-                      </span>
-                    );
-                  })()}
                 </div>
               </div>
-            </div>
+              );
+            })()}
           </div>
         )}
 
