@@ -749,14 +749,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         <div>
           <h3>부상 관리</h3>
         </div>
-        <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <button 
-            onClick={() => setShowPastPainModal(true)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-          >
-            <span className="material-icons-round text-[18px]">history</span>
-            과거 부상 내역 보기
-          </button>
+        <div className="flex flex-col items-end gap-3 sm:flex-row-reverse sm:items-center sm:gap-4">
           {isAgent && (
             <button 
               onClick={handlePainInputClick}
@@ -768,6 +761,13 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
               부상 입력
             </button>
           )}
+          <button 
+            onClick={() => setShowPastPainModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            과거 부상 내역 보기
+          </button>
         </div>
       </div>
 
@@ -1318,14 +1318,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         <div>
           <h3 className="flex items-center gap-3">진료 일정</h3>
         </div>
-        <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <button 
-            onClick={() => setShowPastTimelineModal(true)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-          >
-            <span className="material-icons-round text-[18px]">history</span>
-            지난 진료 기록 보기
-          </button>
+        <div className="flex flex-col items-end gap-3 sm:flex-row-reverse sm:items-center sm:gap-4">
           {isAgent && (
             <button 
               onClick={handleAddTimelineClick}
@@ -1337,6 +1330,13 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
               진료 기록 추가
             </button>
           )}
+          <button 
+            onClick={() => setShowPastTimelineModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            지난 진료 기록 보기
+          </button>
         </div>
       </div>
 
