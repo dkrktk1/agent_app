@@ -481,6 +481,24 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     }
   };
 
+  const permanentlyDeletePainData = () => {
+    if (selectedPart) {
+      if (window.confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        const nextPainData = { ...painData };
+        delete nextPainData[selectedPart];
+        setPainData(nextPainData);
+        setSelectedPart(null);
+        setShowPainModal(false);
+        if (onUpdatePlayer && player) {
+          onUpdatePlayer({
+            ...player,
+            painData: nextPainData
+          });
+        }
+      }
+    }
+  };
+
   const REGION_MAP: Record<'front' | 'back', Record<string, string>> = {
     front: {
       head: 'face',
@@ -1045,11 +1063,18 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       )}
                       <button 
                         onClick={savePainData} 
-                        className="flex-[2] btn-primary py-4 rounded-xl text-base font-bold transition-all"
+                        className={`py-4 rounded-xl text-base font-bold transition-all btn-primary ${selectedPart && isEditingModalMode && painData[selectedPart] ? 'flex-[2]' : 'w-full'}`}
                       >
                         저장
                       </button>
                     </div>
+                    {selectedPart && isEditingModalMode && painData[selectedPart] && (
+                      <div className="mt-2 text-center">
+                        <button onClick={permanentlyDeletePainData} className="w-full py-2 rounded-xl text-red-500 hover:bg-red-500/10 text-[13px] font-bold transition-colors">
+                          삭제
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1257,15 +1282,17 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                           >
                             부상 기록 관리
                           </button>
-                          <div className="flex items-start justify-end sm:items-center gap-1.5 text-[13px] sm:text-[14px] font-semibold text-gray-400 mt-1 sm:mt-0">
-                            <span 
-                              className="w-2.5 h-2.5 rounded-full shrink-0 mt-[3px] sm:mt-0" 
-                              style={{ backgroundColor: getPainColor(item.level) }}
-                            />
-                            <div className="flex flex-col sm:flex-row sm:gap-1 text-right sm:text-left leading-tight sm:leading-normal">
+                          <div className="flex flex-col items-end gap-1 text-[13px] sm:text-[14px] font-semibold text-gray-400 mt-1 sm:mt-0">
+                            <div className="flex items-center gap-1.5">
+                              <span 
+                                className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                style={{ backgroundColor: getPainColor(item.level) }}
+                              />
                               <span>{item.level}단계</span>
-                              <span>({getPainLevelText(item.level)})</span>
                             </div>
+                            <span className="whitespace-nowrap text-[12px] sm:text-[13px] text-gray-500">
+                              ({getPainLevelText(item.level)})
+                            </span>
                           </div>
                         </div>
                       </div>
