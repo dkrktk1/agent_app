@@ -115,7 +115,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
 
   return (
     <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', width: '100%', height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto 0', flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto', width: '100%', maxWidth: '400px', flexShrink: 0 }}>
         {isLoginMode && (
           <div className="auth-header">
             <img 
