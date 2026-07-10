@@ -521,7 +521,7 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
         </div>
 
       <div className="card-chart">
-        <div className="chart-header"><h4>ACWR (급성/만성 부하 비율) 추이 그래프</h4></div>
+        <div className="chart-header"><h4 className="truncate">ACWR (급성/만성 부하 비율) 추이 그래프</h4></div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart

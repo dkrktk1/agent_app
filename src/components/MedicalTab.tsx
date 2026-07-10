@@ -574,7 +574,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     const region = REGION_MAP[viewSide][bodyPart.slug];
     if (!region) return;
     
-    const centralRegions = ['head', 'neck', 'chest', 'abs', 'upper-back', 'lower-back'];
+    const centralRegions = ['head', 'neck', 'abs', 'lower-back'];
     const effectiveSide = centralRegions.includes(region) ? 'center' : (side || 'center');
   
     const id = `${region}_${effectiveSide}_${viewSide}`;
@@ -1232,10 +1232,10 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex flex-col">
-                          <span className="text-[14px] font-bold text-gray-400 mb-1">
+                          <span className="text-[13px] sm:text-[14px] font-bold text-gray-400 mb-1 truncate max-w-[200px] sm:max-w-none">
                             { `부상 발생일: ${item.initialDate ? formatKoreanDate(item.initialDate) : formatKoreanDate(new Date().toISOString().split("T")[0])}` }
                           </span>
-                          <span className="text-[14px] font-bold text-gray-400">
+                          <span className="text-[13px] sm:text-[14px] font-bold text-gray-400 truncate max-w-[200px] sm:max-w-none">
                             {`현재 부상 상태: ${item.history && item.history.length > 0 ? formatKoreanDate(item.history[item.history.length - 1].date) : (item.initialDate ? formatKoreanDate(item.initialDate) : formatKoreanDate(new Date().toISOString().split("T")[0]))}`}
                           </span>
                         </div>
@@ -1277,14 +1277,14 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       
                       <div className="mb-5">
                         <span className="text-[14px] font-bold text-gray-500 block mb-1.5">진단명</span>
-                        <p className="text-[14px] font-medium text-gray-200 leading-relaxed">
+                        <p className="text-[14px] font-medium text-gray-200 truncate">
                           {item.diagnosis || '입력된 진단명 없음'}
                         </p>
                       </div>
                       
                       <div className="mb-5">
                         <span className="text-[14px] font-bold text-gray-500 block mb-1.5">부상 내용</span>
-                        <p className="text-[14px] font-medium text-gray-200 leading-relaxed">
+                        <p className="text-[14px] font-medium text-gray-200 truncate">
                           {item.reason || '입력된 정보 없음'}
                         </p>
                       </div>
@@ -1293,7 +1293,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                         <div>
                           <span className="text-[14px] font-bold text-gray-500 block mb-2">치료기간</span>
                           <div className="flex flex-wrap gap-2">
-                            <span className="text-[14px] font-medium text-gray-300 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] px-2.5 py-1.5 rounded-md leading-none">
+                            <span className="text-[14px] font-medium text-gray-300 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] px-2.5 py-1.5 rounded-md leading-none truncate max-w-[150px]">
                               {item.treatmentPeriod || '입력된 치료기간 없음'}
                             </span>
                           </div>
