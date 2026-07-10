@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useModalHistory } from '../hooks/useModalHistory';
 import CareTab from './CareTab';
 import MedicalTab from './MedicalTab';
 import BizTab from './BizTab';
@@ -20,10 +21,13 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
   );
   
   const [activeTab, setActiveTab] = useState('care');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  useModalHistory(showLogoutConfirm, () => setShowLogoutConfirm(false));
 
   const handleTabChangeClick = (tab: string) => {
     if (activeTab === tab) return;
     window.scrollTo(0, 0);
+    document.querySelector('.app-content')?.scrollTo(0, 0);
     window.history.pushState({ tab, playerId: activePlayerId }, '');
     setActiveTab(tab);
   };
@@ -31,6 +35,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
   const handlePlayerChangeClick = (playerId: string | null) => {
     if (activePlayerId === playerId) return;
     window.scrollTo(0, 0);
+    document.querySelector('.app-content')?.scrollTo(0, 0);
     window.history.pushState({ tab: activeTab, playerId }, '');
     setActivePlayerId(playerId);
   };
@@ -40,6 +45,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       const newTab = e.detail;
       if (activeTab !== newTab) {
         window.scrollTo(0, 0);
+        document.querySelector('.app-content')?.scrollTo(0, 0);
         window.history.pushState({ tab: newTab, playerId: activePlayerId }, '');
         setActiveTab(newTab);
       }
@@ -53,8 +59,16 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
 
     const handlePopState = (e: PopStateEvent) => {
       if (e.state) {
-        if (e.state.tab) setActiveTab(e.state.tab);
-        if (e.state.playerId !== undefined) setActivePlayerId(e.state.playerId);
+        if (e.state.tab) {
+          setActiveTab(e.state.tab);
+          window.scrollTo(0, 0);
+          document.querySelector('.app-content')?.scrollTo(0, 0);
+        }
+        if (e.state.playerId !== undefined) {
+          setActivePlayerId(e.state.playerId);
+          window.scrollTo(0, 0);
+          document.querySelector('.app-content')?.scrollTo(0, 0);
+        }
       }
     };
 
@@ -354,7 +368,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
           <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--primary-color)]/10 text-[var(--primary-color)] border border-[var(--primary-color)]/20">
             {isAgent ? '에이전트 권한' : '선수 연동 포탈'}
           </span>
-          <button id="btn-logout" className="btn-icon-only p-1" onClick={onLogout}>
+          <button id="btn-logout" className="btn-icon-only p-1" onClick={() => setShowLogoutConfirm(true)}>
             <span className="material-icons-round text-white hover:text-red-400 transition-colors">logout</span>
           </button>
         </div>
@@ -522,6 +536,32 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
           <div className="text-[10px] leading-tight mt-1 font-medium">마이페이지</div>
         </button>
       </nav>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[1000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 animate-scale-up">
+            <h3 className="text-lg font-bold text-white mb-2 text-center">로그아웃</h3>
+            <p className="text-gray-400 text-sm text-center mb-6">정말 로그아웃 하시겠습니까?</p>
+            <div className="flex gap-3">
+              <button 
+                className="flex-1 py-3 rounded-xl border border-[rgba(255,255,255,0.1)] text-gray-400 font-bold hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                취소
+              </button>
+              <button 
+                className="flex-1 py-3 rounded-xl bg-[var(--primary-color)] text-black font-bold hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  onLogout();
+                }}
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
