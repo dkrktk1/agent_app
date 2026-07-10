@@ -6,7 +6,7 @@ import BizTab from './BizTab';
 import ScheduleTab from './ScheduleTab';
 import MyPageTab from './MyPageTab';
 import { getComprehensiveStatus } from './ComprehensiveStatusDashboard';
-import { BASE_PLAYER_TEMPLATE } from '../data';
+import { BASE_PLAYER_TEMPLATE } from '../lib/constants';
 import { savePlayerProfile, getPlayerProfile } from '../lib/api';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -96,28 +96,6 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
             salary: currentUser.playerSalary || currentUser.salary,
           };
         }
-
-        // Merge from localStorage as a baseline (fallback)
-        const localUsers = JSON.parse(localStorage.getItem("ag_users") || "[]");
-        localUsers.forEach((data: any) => {
-          if (data.role === 'player') {
-            const pId = data.userId || data.id;
-            if (pId) {
-              playersData[pId] = {
-                ...BASE_PLAYER_TEMPLATE,
-                ...data,
-                id: pId,
-                name: data.playerName || data.name,
-                team: data.playerTeam || data.team,
-                age: data.playerBirthdate || data.age,
-                position: data.playerPosition || data.position,
-                number: data.playerNumber || data.number,
-                handedness: data.playerHandedness || data.handedness,
-                salary: data.playerSalary || data.salary,
-              };
-            }
-          }
-        });
 
         const q = query(collection(db, 'users'), where('role', '==', 'player'));
         const snapshot = await getDocs(q);
@@ -488,14 +466,6 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               const updated = { ...allPlayers, [id]: { ...allPlayers[id], ...newData } };
               setAllPlayers(updated);
               
-              let users = JSON.parse(localStorage.getItem("ag_users") || "[]");
-              const userIdx = users.findIndex((u: any) => u.userId === id || u.linkedPlayer === id);
-              if (userIdx !== -1) {
-                users[userIdx] = { ...users[userIdx], ...newData };
-                try {
-                  localStorage.setItem("ag_users", JSON.stringify(users));
-                } catch(e) {}
-              }
               try {
                 await savePlayerProfile(id, { ...allPlayers[id], ...newData });
               } catch(e) {}
@@ -504,13 +474,6 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               const updated = { ...allPlayers };
               delete updated[id];
               setAllPlayers(updated);
-              
-              // Delete from ag_users
-              let users = JSON.parse(localStorage.getItem("ag_users") || "[]");
-              users = users.filter((u: any) => u.userId !== id && u.linkedPlayer !== id);
-              try {
-                localStorage.setItem("ag_users", JSON.stringify(users));
-              } catch(e) {}
               
               try {
                 // Should delete from firebase too but keep simple

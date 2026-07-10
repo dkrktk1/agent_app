@@ -34,32 +34,14 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
     setIsEditMode(isEdit);
     setShowDeleteConfirm(false);
     
-    // Try to get original user data from ag_users
-    let originalData: any = null;
-    try {
-      const users = JSON.parse(localStorage.getItem("ag_users") || "[]");
-      originalData = users.find((u: any) => u.userId === p.id || u.linkedPlayer === p.id);
-    } catch (e) {}
-
-    if (originalData) {
-      setEditName(originalData.playerName || p.playerName || p.name || '');
-      setEditTeam(originalData.playerTeam || p.playerTeam || p.team || '');
-      setEditPosition(originalData.playerPosition || p.playerPosition || p.position || '');
-      setEditNumber(originalData.playerNumber || p.playerNumber || p.backNumber || p.number || '');
-      setEditHandedness(originalData.playerHandedness || p.playerHandedness || p.handedness || '');
-      setEditBirthdate(originalData.playerBirthdate || p.playerBirthdate || p.age || '');
-      setEditSalary(originalData.playerSalary || p.playerSalary || p.salary || '');
-      setEditProfileImg(originalData.profileImg || p.profileImg || '');
-    } else {
-      setEditName(p.playerName || p.name || '');
-      setEditTeam(p.playerTeam || p.team || '');
-      setEditPosition(p.playerPosition || p.position || '');
-      setEditNumber(p.playerNumber || p.backNumber || p.number || '');
-      setEditHandedness(p.playerHandedness || p.handedness || '');
-      setEditBirthdate(p.playerBirthdate || p.age || '');
-      setEditSalary(p.playerSalary || p.salary || '');
-      setEditProfileImg(p.profileImg || '');
-    }
+    setEditName(p.playerName || p.name || "");
+    setEditTeam(p.playerTeam || p.team || "");
+    setEditPosition(p.playerPosition || p.position || "");
+    setEditNumber(p.playerNumber || p.backNumber || p.number || "");
+    setEditHandedness(p.playerHandedness || p.handedness || "");
+    setEditBirthdate(p.playerBirthdate || p.age || "");
+    setEditSalary(p.playerSalary || p.salary || "");
+    setEditProfileImg(p.profileImg || "");
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,5 +1,3 @@
-export const INITIAL_PLAYERS: any = {};
-
 export const BASE_PLAYER_TEMPLATE: any = {
   status: "success",
   profileImg: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",

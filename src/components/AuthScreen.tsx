@@ -66,18 +66,13 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
       }
     }
 
-    // Keep localStorage just in case, but rely on Firebase
-    let users = JSON.parse(localStorage.getItem("ag_users") || "[]");
-    users.push(newUser);
     try {
-      localStorage.setItem("ag_users", JSON.stringify(users));
-    } catch(e) {}
-    
-    try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000));
-      await Promise.race([savePlayerProfile(userId, newUser), timeoutPromise]);
+      await savePlayerProfile(userId, newUser);
     } catch (e) {
       console.error("Firebase save failed", e);
+      setIsLoading(false);
+      setErrorMsg("회원가입 중 오류가 발생했습니다. 다시 시도해 주세요.");
+      return;
     }
     
     setIsLoading(false);
@@ -100,26 +95,19 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
 
     setIsLoading(true);
     try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000));
-      const user: any = await Promise.race([getPlayerProfile(userId), timeoutPromise]);
+      const user: any = await getPlayerProfile(userId);
       if (user && user.password === password) {
         setIsLoading(false);
         onLogin({ userId, ...user });
         return;
+      } else {
+        setIsLoading(false);
+        setErrorMsg("아이디 또는 비밀번호가 올바르지 않습니다.");
       }
     } catch(e) {
       console.error(e);
-    }
-
-    // Fallback to local storage if firebase fails or is syncing
-    let users = JSON.parse(localStorage.getItem("ag_users") || "[]");
-    let localUser = users.find((u: any) => u.userId === userId && u.password === password);
-
-    setIsLoading(false);
-    if (localUser) {
-      onLogin({ userId, ...localUser });
-    } else {
-      setErrorMsg("아이디 또는 비밀번호가 올바르지 않습니다.");
+      setIsLoading(false);
+      setErrorMsg("로그인 중 오류가 발생했습니다. 다시 시도해 주세요.");
     }
   };
 
@@ -236,7 +224,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>생년월일</label>
                   <div className="input-group" style={{ marginBottom: 0 }}>
                     <span className="material-icons-round">calendar_today</span>
-                    <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required />
+                    <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} onKeyDown={e => e.preventDefault()} onClick={e => { try { e.currentTarget.showPicker(); } catch (err) {} }} max="9999-12-31" required />
                   </div>
                 </div>
                 <div className="input-group">
