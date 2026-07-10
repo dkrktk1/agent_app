@@ -339,6 +339,7 @@ body {
 }
 
 .auth-form-card {
+  position: relative;
   width: 100%;
   background: var(--bg-color);
   border: 1px solid var(--card-border);

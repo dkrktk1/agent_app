@@ -114,16 +114,8 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
   };
 
   return (
-    <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', width: '100%', height: '100%', position: 'relative' }}>
-      {!isLoginMode && (
-        <button 
-          onClick={() => setIsLoginMode(true)}
-          style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-main)', background: 'var(--bg-color)', border: '1px solid var(--card-border)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
-        >
-          <span className="material-icons-round" style={{ fontSize: '20px' }}>close</span>
-        </button>
-      )}
-      <div style={{ flex: 1, minHeight: '20px', flexShrink: 0 }} />
+    <div id="auth-screen" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflowY: isLoginMode ? 'hidden' : 'auto', width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ flexGrow: 1, minHeight: '20px', flexShrink: 0 }} />
       <div style={{ display: 'flex', flexDirection: 'column', margin: '0 auto', width: '100%', maxWidth: '400px', flexShrink: 0 }}>
         {isLoginMode && (
           <div className="auth-header">
@@ -164,7 +156,14 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
           </form>
         ) : (
           <div id="signup-form-container" className="auth-form-card">
-            <h2>회원가입</h2>
+            <button 
+              type="button"
+              onClick={() => setIsLoginMode(true)}
+              style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-main)', background: 'var(--bg-color)', border: '1px solid var(--card-border)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, padding: 0 }}
+            >
+              <span className="material-icons-round" style={{ fontSize: '18px' }}>close</span>
+            </button>
+            <h2 style={{ paddingRight: '32px' }}>회원가입</h2>
             {errorMsg && <p className={`text-sm mb-4 text-center whitespace-nowrap break-keep ${errorMsg.includes('완료') ? 'text-white' : 'text-red-400'}`}>{errorMsg}</p>}
             <div className="input-group">
               <span className="material-icons-round">person</span>
@@ -275,7 +274,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
           </div>
         )}
       </div>
-      <div style={{ flex: 1, minHeight: '40px', flexShrink: 0 }} />
+      <div style={{ flexGrow: 1, minHeight: '40px', flexShrink: 0 }} />
     </div>
   );
 }
