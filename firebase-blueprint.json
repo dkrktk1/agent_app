@@ -1,0 +1,62 @@
+{
+  "collections": [
+    {
+      "name": "users",
+      "description": "Stores user profiles. Users can be 'player' or 'agent'.",
+      "fields": {
+        "uid": "string",
+        "email": "string",
+        "role": "string",
+        "name": "string",
+        "team": "string",
+        "position": "string",
+        "birthDate": "string",
+        "profileImg": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    {
+      "name": "daily_logs",
+      "description": "Stores daily condition logs for players.",
+      "fields": {
+        "userId": "string",
+        "date": "string",
+        "sleepDuration": "number",
+        "gripLeft": "number",
+        "gripRight": "number",
+        "hrv": "number",
+        "rpe": "number",
+        "weight": "number",
+        "acuteLoad": "number",
+        "chronicLoad": "number",
+        "acwr": "number",
+        "createdAt": "timestamp"
+      }
+    },
+    {
+      "name": "schedules",
+      "description": "Stores schedule events.",
+      "fields": {
+        "userId": "string",
+        "date": "string",
+        "type": "string",
+        "title": "string",
+        "location": "string",
+        "description": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    {
+      "name": "financials",
+      "description": "Stores inventory and budget records.",
+      "fields": {
+        "userId": "string",
+        "type": "string",
+        "itemName": "string",
+        "amount": "number",
+        "date": "string",
+        "createdAt": "timestamp"
+      }
+    }
+  ]
+}
