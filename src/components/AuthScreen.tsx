@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { savePlayerProfile, getPlayerProfile } from '../lib/api';
+import { useModalHistory } from '../hooks/useModalHistory';
 
 export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }) {
   const [isLoginMode, setIsLoginMode] = useState(true);
+  useModalHistory(!isLoginMode, () => setIsLoginMode(true));
   const [role, setRole] = useState('player');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');

@@ -301,18 +301,10 @@ body {
    Auth (Login / Signup) Screen
    ========================================================================== */
 #auth-screen {
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(248, 226, 135, 0.15),
-      transparent
-    ),
-    radial-gradient(
-      circle at bottom left,
-      rgba(212, 175, 55, 0.15),
-      var(--bg-color)
-    );
+  background: var(--bg-color);
   padding: 40px 30px;
+  justify-content: center;
+  align-items: center;
 }
 
 .auth-header {
@@ -350,7 +342,7 @@ body {
 
 .auth-form-card {
   width: 100%;
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 24px;
@@ -634,7 +626,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -784,7 +776,7 @@ body {
 }
 
 .metric-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 14px;
@@ -831,7 +823,7 @@ body {
 
 /* 차트 카드 */
 .card-chart {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -885,7 +877,7 @@ body {
    Statcast & Biomechanics
    ========================================================================== */
 .biomechanics-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -966,7 +958,7 @@ body {
    AI Stat Upload Card & Dropzone
    ========================================================================== */
 .file-upload-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1113,7 +1105,7 @@ body {
    Lifestyle & Concierge
    ========================================================================== */
 .lifestyle-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1292,7 +1284,7 @@ body {
    Business & Contract (TAB 2)
    ========================================================================== */
 .biz-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 16px;
@@ -1489,7 +1481,7 @@ input[type="range"]::-webkit-slider-thumb {
    My Page (TAB 3)
    ========================================================================== */
 .mypage-card {
-  background: var(--card-bg);
+  background: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   padding: 24px;
@@ -1820,14 +1812,13 @@ input[type="date"] {
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
-  background: transparent;
-  bottom: 0;
-  color: transparent;
-  cursor: pointer;
-  height: auto;
-  left: 0;
   position: absolute;
-  right: 0;
   top: 0;
-  width: auto;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  background: transparent;
+  color: transparent;
 }
