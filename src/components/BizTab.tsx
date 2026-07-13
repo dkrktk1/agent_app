@@ -24,7 +24,7 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
   const [sponsPrice, setSponsPrice] = useState<number | ''>('');
 
   const [isBudgetEditing, setIsBudgetEditing] = useState(false);
-  const [budgetVal, setBudgetVal] = useState(player.budget || 0);
+  const [budgetVal, setBudgetVal] = useState<number | ''>(player.budget || 0);
 
   const [isPitchDeckOpen, setIsPitchDeckOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
@@ -343,13 +343,13 @@ ${proposalPoint}
                         <input 
                           type="number" 
                           value={budgetVal} 
-                          onChange={(e) => setBudgetVal(Number(e.target.value))}
+                          onChange={(e) => setBudgetVal(e.target.value === '' ? '' : Number(e.target.value))}
                           className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded px-2 py-1 text-white text-right w-24 text-sm outline-none focus:border-[var(--primary-color)] transition-colors"
                         />
                         <button className="text-xs bg-[var(--primary-color)] text-[var(--bg-color)] px-2 py-1 rounded font-medium" onClick={handleBudgetSave}>저장</button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setBudgetVal(player.budget || 0); setIsBudgetEditing(true); }}>
+                      <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setBudgetVal(''); setIsBudgetEditing(true); }}>
                         <span className="text-white text-sm font-medium">{(player.budget || 0).toLocaleString()}원</span>
                         <span className="material-icons-round text-[14px] text-gray-500">edit</span>
                       </div>
@@ -514,7 +514,7 @@ ${proposalPoint}
       {/* Pitch Deck Modal */}
       <div className={`modal ${isPitchDeckOpen ? 'active' : ''}`}>
         <div className="modal-content-wide">
-          <div className="modal-header">
+          <div className="flex justify-between items-center mb-6">
             <h4>가치 증명 Pitch Deck (PDF 시뮬레이션)</h4>
             <span className="material-icons-round close-btn" onClick={() => setIsPitchDeckOpen(false)}>close</span>
           </div>
@@ -572,6 +572,83 @@ ${proposalPoint}
         </div>
       </div>
 
+      {isInventoryModalOpen && (
+        <div className="fixed inset-0 z-[2000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center" onClick={() => setIsInventoryModalOpen(false)}>
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-white mb-0">{editingInventoryIndex !== null ? '지원 용품 수정' : '지원 용품 추가'}</h3>
+              <button className="text-gray-400 hover:text-white transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setIsInventoryModalOpen(false)}>
+                <span className="material-icons-round">close</span>
+              </button>
+            </div>
+            <div className="flex flex-col gap-4 mb-6">
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">날짜</label>
+                <input type="date" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" value={invDate} onChange={e => setInvDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">품명</label>
+                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 스파이크, 글러브" value={invName} onChange={e => setInvName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">수량</label>
+                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 2켤레, 1개" value={invQty} onChange={e => setInvQty(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">지원 금액 환산</label>
+                <input type="number" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="금액" value={invPrice} onChange={e => setInvPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              {editingInventoryIndex !== null && (
+                <button className="flex-1 bg-red-500/20 text-red-400 text-sm font-bold py-3 rounded-xl hover:bg-red-500/30 transition-colors" onClick={deleteInventoryItem}>삭제</button>
+              )}
+              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] text-sm font-bold py-3 rounded-xl hover:opacity-90 transition-opacity" onClick={saveInventoryItem}>저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSponsorshipModalOpen && (
+        <div className="fixed inset-0 z-[2000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center" onClick={() => setIsSponsorshipModalOpen(false)}>
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-white mb-0">{editingSponsorshipIndex !== null ? '스폰서쉽 수정' : '스폰서쉽 추가'}</h3>
+              <button className="text-gray-400 hover:text-white transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setIsSponsorshipModalOpen(false)}>
+                <span className="material-icons-round">close</span>
+              </button>
+            </div>
+            <div className="flex flex-col gap-4 mb-6">
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">날짜</label>
+                <input type="date" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" value={sponsDate} onChange={e => setSponsDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">후원사</label>
+                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 나이키, 언더아머" value={sponsCompany} onChange={e => setSponsCompany(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">후원 내용</label>
+                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 연간 용품 지원" value={sponsName} onChange={e => setSponsName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">상세 / 기간</label>
+                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 2026.01 - 2026.12" value={sponsQty} onChange={e => setSponsQty(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-white mb-3 block">후원 금액</label>
+                <input type="number" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="금액" value={sponsPrice} onChange={e => setSponsPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              {editingSponsorshipIndex !== null && (
+                <button className="flex-1 bg-red-500/20 text-red-400 text-sm font-bold py-3 rounded-xl hover:bg-red-500/30 transition-colors" onClick={deleteSponsorshipItem}>삭제</button>
+              )}
+              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] text-sm font-bold py-3 rounded-xl hover:opacity-90 transition-opacity" onClick={saveSponsorshipItem}>저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

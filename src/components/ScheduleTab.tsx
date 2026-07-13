@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useModalHistory } from '../hooks/useModalHistory';
-import { getPartName } from '../utils';
+import { getPartName, rebuildChartsFromSchedules } from '../utils';
 
 const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val: string) => void, label: string }) => {
   const [h, m] = value.split(':');
@@ -70,13 +70,13 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
   const [newEventDetails, setNewEventDetails] = useState('');
   const [newEventParticipating, setNewEventParticipating] = useState(false);
   const [newEventParticipationType, setNewEventParticipationType] = useState<'선발' | '교체'>('선발');
-  const [logRpe, setLogRpe] = useState<number | ''>('');
-  const [logDuration, setLogDuration] = useState<number | ''>('');
-  const [newEventGrip, setNewEventGrip] = useState<number | ''>('');
-  const [newEventGripLeft, setNewEventGripLeft] = useState<number | ''>('');
-  const [newEventGripRight, setNewEventGripRight] = useState<number | ''>('');
-  const [sleepStart, setSleepStart] = useState('');
-  const [sleepEnd, setSleepEnd] = useState('');
+  const [logRpe, setLogRpe] = useState<number | ''>(7);
+  const [logDuration, setLogDuration] = useState<number | ''>(120);
+  const [newEventGrip, setNewEventGrip] = useState<number | ''>(50);
+  const [newEventGripLeft, setNewEventGripLeft] = useState<number | ''>(50);
+  const [newEventGripRight, setNewEventGripRight] = useState<number | ''>(50);
+  const [sleepStart, setSleepStart] = useState('23:00');
+  const [sleepEnd, setSleepEnd] = useState('07:00');
   const [newEventType, setNewEventType] = useState<'match' | 'biz' | 'care'>('match');
 
   const rpeLabels: Record<number, string> = {
@@ -134,39 +134,14 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        details = newEventDetails;
     } else if (newEventType === 'care') {
        title = `[컨디셔닝] 당일 지표 측정`;
-       
-       if (!p.gripChartData) p.gripChartData = { values: [50,50,50,50], leftValues: [50,50,50,50], rightValues: [50,50,50,50] };
-       if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...(p.gripChartData.values || [50,50,50,50])];
-       if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...(p.gripChartData.values || [50,50,50,50])];
-       
-       if (p.gripChartData.leftValues) {
-         const baseLeft = p.gripChartData.leftValues[0] || 0;
-         const devLeft = baseLeft ? (((newEventGripLeft - baseLeft) / baseLeft) * 100) : 0;
-         
-         const baseRight = p.gripChartData.rightValues[0] || 0;
-         const devRight = baseRight ? (((newEventGripRight - baseRight) / baseRight) * 100) : 0;
-         
-         p.gripChartData.leftValues.shift();
-         p.gripChartData.leftValues.push(newEventGripLeft);
-         
-         p.gripChartData.rightValues.shift();
-         p.gripChartData.rightValues.push(newEventGripRight);
-         
-         gripLeft = Number(newEventGripLeft) || 0;
-       gripRight = Number(newEventGripRight) || 0;
-       }
+       const gl = Number(newEventGripLeft) || 0;
+       const gr = Number(newEventGripRight) || 0;
+       const overallGrip = (gl + gr) / 2;
 
-       // maintain legacy values just in case
-       if (!p.metrics) p.metrics = {};
-       const base = p.metrics.gripBaseline || 50;
-       const dev = (((newEventGrip - base) / base) * 100).toFixed(1);
-       const newLoad = (Number(logRpe) || 0) * (Number(logDuration) || 0);
-       if (!p.acwrChartData) p.acwrChartData = { acute: [0,0,0,0], chronic: [1,1,1,1], acwr: [0,0,0,0] };
-       const curAcute = Math.round((p.acwrChartData.acute[2] * 6 + newLoad) / 7);
-       acwr = parseFloat((curAcute / p.acwrChartData.chronic[3]).toFixed(2));
-       grip = Number(newEventGrip) || 0;
+       const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
+       const logDurationNum = Number(logDuration) || 120;
+       const curAcute = (Number(logRpe) || 0) * logDurationNum;
 
-       // Calculate sleep duration
        let sleepDuration = 0;
        if (sleepStart && sleepEnd) {
          const [startH, startM] = sleepStart.split(':').map(Number);
@@ -176,37 +151,80 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
          sleepDuration = Number((durationMins / 60).toFixed(1));
        }
 
-       p.acwrChartData.acute[3] = curAcute;
-       p.acwrChartData.acwr[3] = acwr;
-       p.gripChartData.values.shift();
-       p.gripChartData.values.push(grip);
-       p.metrics.rpe = logRpe;
-       p.metrics.gripRaw = grip;
-       p.metrics.grip = parseFloat(dev);
-       p.metrics.acwr = acwr;
-       p.metrics.sleep = sleepDuration;
-       
-       if (!p.acwrGraphData) p.acwrGraphData = [];
-       const existingGraphIndex = p.acwrGraphData.findIndex((d: any) => d.date === formattedDate);
-       if (existingGraphIndex !== -1) {
-         p.acwrGraphData[existingGraphIndex].acwr = acwr;
-       } else {
-         p.acwrGraphData.shift();
-         p.acwrGraphData.push({ date: formattedDate, acwr });
+       const prevChronic = p?.acwrChartData?.chronic?.[3] ?? 1;
+       let newAcwr = "0.0";
+       if (prevChronic > 0) {
+         newAcwr = (curAcute / prevChronic).toFixed(2);
        }
 
+       if (!p.acwrChartData) p.acwrChartData = { acute: [0,0,0,0], chronic: [1,1,1,1], acwr: [0,0,0,0] };
+       if (!p.gripChartData) p.gripChartData = { labels: [], values: [], leftValues: [], rightValues: [] };
+       if (!p.gripChartData.labels) p.gripChartData.labels = [];
+       if (!p.gripChartData.values) p.gripChartData.values = [];
+       if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...p.gripChartData.values];
+       if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...p.gripChartData.values];
+
+       p.acwrChartData.acute[3] = curAcute;
+       p.acwrChartData.acwr[3] = parseFloat(newAcwr);
+
+       if (!p.metrics) p.metrics = {};
+       p.metrics.rpe = Number(logRpe) || 0; 
+       p.metrics.gripRaw = overallGrip;
+       p.metrics.grip = parseFloat(dev);
+       p.metrics.acwr = parseFloat(newAcwr);
+       p.metrics.sleep = sleepDuration;
+       if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
+       else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
+       else p.status = "normal";
+
+       // update line charts
+       if (!p.acwrGraphData) p.acwrGraphData = [];
        if (!p.sleepChartData) p.sleepChartData = [];
+
+       const existingAcwrIndex = p.acwrGraphData.findIndex((d: any) => d.date === formattedDate);
+       if (existingAcwrIndex !== -1) {
+         p.acwrGraphData[existingAcwrIndex].acwr = parseFloat(newAcwr);
+       } else {
+         if (p.acwrGraphData.length >= 7) p.acwrGraphData.shift();
+         p.acwrGraphData.push({ date: formattedDate, acwr: parseFloat(newAcwr) });
+       }
+
        const existingSleepIndex = p.sleepChartData.findIndex((d: any) => d.date === formattedDate);
        if (existingSleepIndex !== -1) {
          p.sleepChartData[existingSleepIndex].sleepDuration = sleepDuration;
        } else {
-         p.sleepChartData.shift();
-         p.sleepChartData.push({ date: formattedDate, sleepDuration });
+         if (p.sleepChartData.length >= 7) p.sleepChartData.shift();
+         p.sleepChartData.push({ date: formattedDate, sleepDuration: sleepDuration });
+       }
+       p.acwrGraphData.sort((a: any, b: any) => a.date.localeCompare(b.date));
+       p.sleepChartData.sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+       const lastLabel = p.gripChartData.labels.length > 0 ? p.gripChartData.labels[p.gripChartData.labels.length - 1] : "";
+       if (lastLabel === "오늘" || lastLabel === formattedDate) {
+         p.gripChartData.labels[p.gripChartData.labels.length - 1] = "오늘"; // Assuming today's entry
+         p.gripChartData.values[p.gripChartData.values.length - 1] = overallGrip;
+         p.gripChartData.leftValues[p.gripChartData.leftValues.length - 1] = gl;
+         p.gripChartData.rightValues[p.gripChartData.rightValues.length - 1] = gr;
+       } else {
+         if (p.gripChartData.labels.length > 0 && p.gripChartData.labels[p.gripChartData.labels.length - 1] === "오늘") {
+            p.gripChartData.labels[p.gripChartData.labels.length - 1] = "어제";
+         }
+         if (p.gripChartData.labels.length >= 7) {
+           p.gripChartData.labels.shift();
+           p.gripChartData.values.shift();
+           p.gripChartData.leftValues.shift();
+           p.gripChartData.rightValues.shift();
+         }
+         p.gripChartData.labels.push(formattedDate);
+         p.gripChartData.values.push(overallGrip);
+         p.gripChartData.leftValues.push(gl);
+         p.gripChartData.rightValues.push(gr);
        }
        
-       if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-       else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
-       else p.status = "normal";
+       acwr = parseFloat(newAcwr);
+       gripLeft = gl;
+       gripRight = gr;
+       grip = overallGrip;
     } else {
        title = `[경기] ${newEventTeam}`;
        place = newEventLocation;
@@ -222,7 +240,13 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     }
 
     const newEvent: any = { date: formattedDate, title, place, time, details, acwr, grip, gripLeft, gripRight };
-    if (sleep !== undefined) newEvent.sleep = sleep;
+    if (sleep !== undefined) {
+      newEvent.sleep = sleep;
+      if (newEventType === 'care') {
+        newEvent.sleepStart = sleepStart;
+        newEvent.sleepEnd = sleepEnd;
+      }
+    }
     if (newEventType === 'match') {
       newEvent.isParticipating = newEventParticipating;
       if (newEventParticipating) {
@@ -239,9 +263,11 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     }
     
     updatedSchedules.sort((a, b) => a.date.localeCompare(b.date));
+    p.schedules = updatedSchedules;
+    p = rebuildChartsFromSchedules(p);
 
     if (onUpdatePlayer) {
-      onUpdatePlayer({ ...p, schedules: updatedSchedules });
+      onUpdatePlayer(p);
     }
     closeModal();
   };
@@ -275,8 +301,8 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
-    setSleepStart('');
-    setSleepEnd('');
+    setSleepStart('23:00');
+    setSleepEnd('07:00');
     setEditingEventOriginalIndex(null);
   };
 
@@ -302,8 +328,8 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
-    setSleepStart('');
-    setSleepEnd('');
+    setSleepStart('23:00');
+    setSleepEnd('07:00');
     setNewEventType(calendarType);
     setEditingEventOriginalIndex(null);
     setIsAddModalOpen(true);
@@ -362,11 +388,26 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
         setNewEventDetails(event.details || '');
     } else if (isCare) {
         setNewEventType('care');
-        setLogRpe(7);
-        setLogDuration(120);
+        setLogRpe(7); // LogRpe not saved in schedule, defaulting to 7
+        setLogDuration(120); // Not saved in schedule, defaulting to 120
         setNewEventGrip(event.grip || 50);
         setNewEventGripLeft(event.gripLeft || 50);
         setNewEventGripRight(event.gripRight || 50);
+        if (event.sleep !== undefined) {
+           const sleepDuration = event.sleep;
+           if (event.sleepStart && event.sleepEnd) {
+             setSleepStart(event.sleepStart);
+             setSleepEnd(event.sleepEnd);
+           } else {
+             setSleepStart('23:00');
+             const endH = (23 + Math.floor(sleepDuration)) % 24;
+             const endM = Math.round((sleepDuration - Math.floor(sleepDuration)) * 60);
+             setSleepEnd(`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
+           }
+        } else {
+           setSleepStart('23:00');
+           setSleepEnd('07:00');
+        }
     } else {
         setNewEventType('match');
         setNewEventTeam(titleWithoutPrefix || 'KIA 타이거즈');
@@ -562,8 +603,8 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
-    setSleepStart('');
-    setSleepEnd('');
+    setSleepStart('23:00');
+    setSleepEnd('07:00');
               setIsAddModalOpen(true);
             }} 
             className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity" 
@@ -803,7 +844,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               {newEventType === 'care' && (
                 <>
                   <div>
-                    <label className="text-sm font-bold text-white mb-3 block">훈련 후 인지된 노력(1~10)</label>
+                    <label className="text-sm font-bold text-white mb-3 block">인지된 훈련 강도(힘듦)</label>
                     <div className="text-center mb-4 text-xs font-bold transition-colors duration-150" style={{ color: !logRpe ? '#6b7280' : (logRpe <= 2 ? '#3b82f6' : logRpe <= 4 ? '#10b981' : logRpe <= 6 ? '#eab308' : logRpe <= 8 ? '#f97316' : '#ef4444') }}>
                       {logRpe ? `${logRpe} - ${rpeLabels[logRpe as number]}` : '선택해주세요'}
                     </div>
@@ -842,7 +883,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
 
                   <div>
                     <label className="text-sm font-bold text-white mb-3 block">수면 시간</label>
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 pl-2 border-l-2 border-[rgba(255,255,255,0.1)] ml-2 mt-2">
                       <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
                       <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
                     </div>

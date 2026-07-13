@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Chart from 'chart.js/auto';
 import {
   LineChart,
+  BarChart,
+  Bar,
+  Cell,
+  LabelList,
   Line,
   XAxis,
   YAxis,
@@ -10,7 +13,7 @@ import {
   ReferenceArea,
   ResponsiveContainer
 } from 'recharts';
-import { downloadSampleCSV } from '../utils';
+import { downloadSampleCSV, rebuildChartsFromSchedules } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
 
 const getAcwrColor = (value: number) => {
@@ -84,7 +87,7 @@ const SleepCustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="bg-[#2D3748] border border-[rgba(255,255,255,0.1)] p-3 rounded-lg shadow-xl">
         <p className="text-gray-400 text-sm mb-1">{label}</p>
-        <p className="text-white font-bold text-lg mb-2">수면 시간: {hours}시간 {minutes}분</p>
+        <p className="text-white font-bold text-lg mb-2">{hours}시간 {minutes}분</p>
         <p className={`text-xs font-medium ${duration >= 8 ? 'text-green-400' : duration >= 6 ? 'text-gray-300' : 'text-red-400'}`}>
           {comment}
         </p>
@@ -140,25 +143,22 @@ const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val:
   );
 };
 
-export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: any, isAgent: boolean, onUpdatePlayer: (newData: any) => void, key?: string }) {
+export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: { player: any, isAgent: boolean, onUpdatePlayer: (newData: any) => void, key?: string }) {
+  const player = React.useMemo(() => rebuildChartsFromSchedules(rawPlayer), [rawPlayer]);
   const [isDailyLogOpen, setIsDailyLogOpen] = useState(false);
 
-  const gripChartRef = useRef<HTMLCanvasElement>(null);
-
+  
   const [logRpe, setLogRpe] = useState(7);
   const [logDuration, setLogDuration] = useState<number | string>(120);
   const [logGrip, setLogGrip] = useState<number | string>(player?.metrics?.gripRaw ?? 0);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
 
-  const [gripLeftBaseline, setGripLeftBaseline] = useState(player?.gripChartData?.leftValues?.[0] ?? 0);
-  const [gripLeftToday, setGripLeftToday] = useState(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
-  const [gripRightBaseline, setGripRightBaseline] = useState(player?.gripChartData?.rightValues?.[0] ?? 0);
-  const [gripRightToday, setGripRightToday] = useState(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
+    const [gripLeftToday, setGripLeftToday] = useState(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
+    const [gripRightToday, setGripRightToday] = useState(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
 
   const [logGripLeft, setLogGripLeft] = useState<number | string>(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
   const [logGripRight, setLogGripRight] = useState<number | string>(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
-  const [selectedHand, setSelectedHand] = useState<'left' | 'right'>('left');
 
   const rpeLabels: Record<number, string> = {
     1: '매우 쉬움',
@@ -174,108 +174,50 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
   };
 
   useEffect(() => {
-    setLogGrip(player.metrics.gripRaw);
-    setLogGripLeft(gripLeftToday);
-    setLogGripRight(gripRightToday);
-  }, [player, gripLeftToday, gripRightToday]);
+    setLogGrip(player?.metrics?.gripRaw || 0);
+    setGripLeftToday(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
+    setGripRightToday(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
+    setLogGripLeft(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
+    setLogGripRight(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
+  }, [player]);
 
-  useEffect(() => {
-    const primaryColor = player?.id === "batter" ? "#00FFA3" : "#00E5FF";
-    const contrastColor = player?.id === "batter" ? "#00E5FF" : "#FFB300";
-    let gripChart: any;
-
-    const chartValues = selectedHand === 'left' 
-      ? (player?.gripChartData?.leftValues || player?.gripChartData?.values || []) 
-      : (player?.gripChartData?.rightValues || player?.gripChartData?.values || []);
-
-    const labels = player?.gripChartData?.labels || [];
-
-    if (gripChartRef.current) {
-      gripChart = new Chart(gripChartRef.current, {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [{ 
-            label: "측정치", 
-            data: chartValues, 
-            backgroundColor: labels.map((l: string) => l === "오늘" ? contrastColor + "99" : primaryColor + "33"), 
-            borderColor: labels.map((l: string) => l === "오늘" ? contrastColor : primaryColor), 
-            borderWidth: 1.5, 
-            borderRadius: 4 
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false, 
-          layout: { padding: { top: 20 } },
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { grid: { color: "rgba(255,255,255,0.03)" }, ticks: { color: "#8E9AA8", font: { size: 10 } } },
-            y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#8E9AA8", font: { size: 10 } }, min: chartValues.length > 0 ? Math.max(0, Math.floor(Math.min(...chartValues) - 3)) : 0 }
-          }
-        },
-        plugins: [{
-          id: 'customDataLabels',
-          afterDatasetsDraw(chart: any) {
-            const { ctx, data } = chart;
-            ctx.save();
-            ctx.font = 'bold 11px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            chart.getDatasetMeta(0).data.forEach((datapoint: any, index: number) => {
-              const value = data.datasets[0].data[index];
-              const isToday = labels[index] === "오늘";
-              ctx.fillStyle = isToday ? contrastColor : "#8E9AA8";
-              ctx.fillText(value, datapoint.x, datapoint.y - 4);
-            });
-            ctx.restore();
-          }
-        }]
-      });
-    }
-    return () => { if (gripChart) gripChart.destroy(); };
-  }, [player, selectedHand]);
-
+  
   const submitDailyLog = () => {
     const gl = Number(logGripLeft) || 0;
     const gr = Number(logGripRight) || 0;
-    const dur = Number(logDuration) || 0;
+    const overallGrip = (gl + gr) / 2;
 
-    setGripLeftToday(gl);
-    setGripRightToday(gr);
-    const overallGrip = Number(((gl + gr) / 2).toFixed(1));
+    const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
+    const logDurationNum = Number(logDuration) || 120;
+    const curAcute = logRpe * logDurationNum;
+    
+    const [h1, m1] = sleepStart.split(':').map(Number);
+    const [h2, m2] = sleepEnd.split(':').map(Number);
+    let sleepDuration = 0;
+    if (h1 !== undefined && m1 !== undefined && h2 !== undefined && m2 !== undefined) {
+      let startMin = h1 * 60 + m1;
+      let endMin = h2 * 60 + m2;
+      if (endMin < startMin) endMin += 24 * 60;
+      sleepDuration = Number(((endMin - startMin) / 60).toFixed(1));
+    }
 
-    const base = player.metrics.gripBaseline;
-    const dev = (((overallGrip - base) / base) * 100).toFixed(1);
-    const newLoad = logRpe * dur;
-    const curAcute = Math.round((player.acwrChartData.acute[2] * 6 + newLoad) / 7);
-    const newAcwr = (curAcute / player.acwrChartData.chronic[3]).toFixed(2);
-    
-    // Calculate sleep duration
-    const [startH, startM] = sleepStart.split(':').map(Number);
-    const [endH, endM] = sleepEnd.split(':').map(Number);
-    let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-    if (durationMins < 0) durationMins += 24 * 60;
-    const sleepDuration = Number((durationMins / 60).toFixed(1));
-    
-    const p = JSON.parse(JSON.stringify(player));
+    const prevChronic = player?.acwrChartData?.chronic?.[3] ?? 1;
+    let newAcwr = "0.0";
+    if (prevChronic > 0) {
+      newAcwr = (curAcute / prevChronic).toFixed(2);
+    }
+
+    let p = JSON.parse(JSON.stringify(player));
     if (!p.acwrChartData) p.acwrChartData = { acute: [0,0,0,0], chronic: [1,1,1,1], acwr: [0,0,0,0] };
-    if (!p.gripChartData) p.gripChartData = { values: [50,50,50,50], leftValues: [50,50,50,50], rightValues: [50,50,50,50] };
-    if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...(p.gripChartData.values || [50,50,50,50])];
-    if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...(p.gripChartData.values || [50,50,50,50])];
+    if (!p.gripChartData) p.gripChartData = { labels: [], values: [], leftValues: [], rightValues: [] };
+    if (!p.gripChartData.labels) p.gripChartData.labels = [];
+    if (!p.gripChartData.values) p.gripChartData.values = [];
+    if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...p.gripChartData.values];
+    if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...p.gripChartData.values];
 
     p.acwrChartData.acute[3] = curAcute;
     p.acwrChartData.acwr[3] = parseFloat(newAcwr);
-    
-    if (!p.gripChartData.values) p.gripChartData.values = [50,50,50,50];
-    p.gripChartData.values.shift();
-    p.gripChartData.values.push(overallGrip);
-    
-    p.gripChartData.leftValues.shift();
-    p.gripChartData.leftValues.push(gl);
-    
-    p.gripChartData.rightValues.shift();
-    p.gripChartData.rightValues.push(gr);
-    
+
     if (!p.metrics) p.metrics = {};
     p.metrics.rpe = logRpe; 
     p.metrics.gripRaw = overallGrip;
@@ -290,26 +232,10 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const d = String(today.getDate()).padStart(2, '0');
     const dateStr = `${month}/${d}`;
-    
-    // update line charts
-    if (!p.acwrGraphData) p.acwrGraphData = [];
-    if (!p.sleepChartData) p.sleepChartData = [];
-    
-    const existingGraphIndex = p.acwrGraphData.findIndex((d: any) => d.date === dateStr);
-    if (existingGraphIndex !== -1) {
-      p.acwrGraphData[existingGraphIndex].acwr = parseFloat(newAcwr);
-      p.sleepChartData[existingGraphIndex].sleepDuration = sleepDuration;
-    } else {
-      p.acwrGraphData.shift();
-      p.acwrGraphData.push({ date: dateStr, acwr: parseFloat(newAcwr) });
-      
-      p.sleepChartData.shift();
-      p.sleepChartData.push({ date: dateStr, sleepDuration: sleepDuration });
-    }
+
 
     p.schedules = p.schedules || [];
     
-    // 중복 추가 방지 (같은 날에 이미 측정 일정이 있다면 무시)
     const existingIndex = p.schedules.findIndex((s: any) => s.date === dateStr && s.title === '[컨디셔닝] 당일 지표 측정');
     if (existingIndex !== -1) {
       p.schedules[existingIndex].acwr = parseFloat(newAcwr);
@@ -318,9 +244,10 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
       p.schedules[existingIndex].gripRight = gr;
       p.schedules[existingIndex].sleep = sleepDuration;
     } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', acwr: parseFloat(newAcwr), grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration });
+      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', acwr: parseFloat(newAcwr), grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd });
     }
 
+    p = rebuildChartsFromSchedules(p);
     onUpdatePlayer(p); setIsDailyLogOpen(false); alert("오늘의 컨디셔닝 상태가 실시간 반영되었습니다!");
   };
 
@@ -331,9 +258,15 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
   const acwrStatusIcon = isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
   const acwrStatusText = isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
 
-  const latestSleep = player.metrics?.sleep ?? 0;
+    const latestSleep = player.sleepChartData?.length ? player.sleepChartData[player.sleepChartData.length - 1].sleepDuration : 0;
   const isSleepEmpty = latestSleep === 0;
-  const avgSleep = player.sleepChartData?.length ? (player.sleepChartData.reduce((acc: any, curr: any) => acc + curr.sleepDuration, 0) / player.sleepChartData.length).toFixed(1) : "0.0";
+  const avgSleepCalc = () => {
+    if (!player.sleepChartData || player.sleepChartData.length === 0) return null;
+    const valid = player.sleepChartData.filter((d: any) => d.sleepDuration > 0);
+    if (valid.length === 0) return null;
+    return (valid.reduce((acc: any, curr: any) => acc + curr.sleepDuration, 0) / valid.length).toFixed(1);
+  };
+  const avgSleep = avgSleepCalc();
 
   const sleepStatusColor = isSleepEmpty ? 'text-gray-500' : latestSleep < 6 ? 'text-red-500' : latestSleep >= 8 ? 'text-green-500' : 'text-gray-400';
   const sleepBorderColor = isSleepEmpty ? 'border-gray-500/30' : latestSleep < 6 ? 'border-red-500/30' : latestSleep >= 8 ? 'border-green-500/30' : 'border-white/10';
@@ -352,6 +285,15 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
     if (change >= -14.9) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
     return { status: '치명적', colorClass: 'text-gray-500', borderClass: 'border-gray-500/30', bgClass: 'bg-gray-500/10' };
   };
+
+    const calcGripAvg = (arr?: number[]) => {
+    if (!arr || arr.length === 0) return 0;
+    const valid = arr.filter(v => v > 0);
+    if (valid.length === 0) return 0;
+    return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1));
+  };
+  const gripLeftBaseline = calcGripAvg(player?.gripChartData?.leftValues);
+  const gripRightBaseline = calcGripAvg(player?.gripChartData?.rightValues);
 
   const isLeftEmpty = gripLeftBaseline === 0 && gripLeftToday === 0;
   const isRightEmpty = gripRightBaseline === 0 && gripRightToday === 0;
@@ -414,9 +356,11 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
             <div className={`text-3xl md:text-4xl font-black leading-none text-center mb-2 ${sleepStatusColor}`}>
               {isSleepEmpty ? '-' : `${latestSleep}h`}
             </div>
-            <div className="text-xs md:text-sm text-[var(--text-muted)] font-medium mt-5">
-              최근 7일 평균: {isSleepEmpty ? '-' : `${avgSleep}h`}
-            </div>
+            {avgSleep !== null && (
+              <div className="text-xs md:text-sm text-[var(--text-muted)] font-medium mt-5">
+                최근 7일 평균: {avgSleep}h
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -451,6 +395,16 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
                       step="0.1"
                       value={gripLeftToday === 0 ? '' : gripLeftToday} 
                       onChange={e => setGripLeftToday(Number(e.target.value))}
+                      onBlur={e => {
+                        const val = Number(e.target.value);
+                        let p = JSON.parse(JSON.stringify(player));
+                        if (p.gripChartData && p.gripChartData.leftValues && p.gripChartData.leftValues.length > 0) {
+                          p.gripChartData.leftValues[p.gripChartData.leftValues.length - 1] = val;
+                          if (!p.metrics) p.metrics = {};
+                          p.metrics.gripRaw = (val + gripRightToday) / 2;
+                          onUpdatePlayer(p);
+                        }
+                      }}
                       placeholder="0"
                       className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
                     />
@@ -461,14 +415,7 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
                   <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <input 
-                      type="number" 
-                      step="0.1"
-                      value={gripLeftBaseline === 0 ? '' : gripLeftBaseline} 
-                      onChange={e => setGripLeftBaseline(Number(e.target.value))}
-                      placeholder="0"
-                      className="bg-transparent border-b border-gray-600 w-12 sm:w-16 text-right text-[10px] sm:text-sm text-white focus:outline-none focus:border-[var(--primary-color)] placeholder-gray-600"
-                    />
+                    <span className="text-right text-[10px] sm:text-sm text-white font-bold">{gripLeftBaseline === 0 ? '-' : gripLeftBaseline}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>
@@ -498,6 +445,16 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
                       step="0.1"
                       value={gripRightToday === 0 ? '' : gripRightToday} 
                       onChange={e => setGripRightToday(Number(e.target.value))}
+                      onBlur={e => {
+                        const val = Number(e.target.value);
+                        let p = JSON.parse(JSON.stringify(player));
+                        if (p.gripChartData && p.gripChartData.rightValues && p.gripChartData.rightValues.length > 0) {
+                          p.gripChartData.rightValues[p.gripChartData.rightValues.length - 1] = val;
+                          if (!p.metrics) p.metrics = {};
+                          p.metrics.gripRaw = (gripLeftToday + val) / 2;
+                          onUpdatePlayer(p);
+                        }
+                      }}
                       placeholder="0"
                       className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
                     />
@@ -508,14 +465,7 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
                   <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <input 
-                      type="number" 
-                      step="0.1"
-                      value={gripRightBaseline === 0 ? '' : gripRightBaseline} 
-                      onChange={e => setGripRightBaseline(Number(e.target.value))}
-                      placeholder="0"
-                      className="bg-transparent border-b border-gray-600 w-12 sm:w-16 text-right text-[10px] sm:text-sm text-white focus:outline-none focus:border-[var(--primary-color)] placeholder-gray-600"
-                    />
+                    <span className="text-right text-[10px] sm:text-sm text-white font-bold">{gripRightBaseline === 0 ? '-' : gripRightBaseline}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>
@@ -554,25 +504,91 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
         <div className="chart-header">
           <h4 style={{ marginBottom: 0 }}>최근 7일 악력 추이</h4>
         </div>
-        <div className="flex justify-center mb-4">
-          <div className="tabs-sub" style={{ margin: 0, minWidth: '140px' }}>
-            <button 
-              className={`tab-sub-btn ${selectedHand === 'left' ? 'active' : ''}`}
-              onClick={() => setSelectedHand('left')}
-              style={{ backgroundColor: selectedHand === 'left' ? 'var(--primary-color)' : 'transparent', color: selectedHand === 'left' ? 'var(--bg-color)' : 'var(--text-muted)' }}
+        <div className="h-[280px] w-full mt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={player?.gripChartData?.labels?.map((label: string, idx: number) => ({
+                name: label,
+                left: player?.gripChartData?.leftValues?.[idx] || player?.gripChartData?.values?.[idx] || 0,
+                right: player?.gripChartData?.rightValues?.[idx] || player?.gripChartData?.values?.[idx] || 0
+              })) || []}
+              margin={{ top: 30, right: 10, left: 0, bottom: 0 }}
+              barGap={2}
+              barCategoryGap="10%"
             >
-              왼손
-            </button>
-            <button 
-              className={`tab-sub-btn ${selectedHand === 'right' ? 'active' : ''}`}
-              onClick={() => setSelectedHand('right')}
-              style={{ backgroundColor: selectedHand === 'right' ? 'var(--primary-color)' : 'transparent', color: selectedHand === 'right' ? 'var(--bg-color)' : 'var(--text-muted)' }}
-            >
-              오른손
-            </button>
-          </div>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis dataKey="name" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+              <YAxis 
+                domain={['dataMin - 5', 'dataMax + 5']} 
+                stroke="#8E9AA8" 
+                tick={{ fill: '#8E9AA8', fontSize: 12 }} 
+                axisLine={false} 
+                tickLine={false} 
+                dx={-10} 
+              />
+              <Bar dataKey="left" radius={[4, 4, 4, 4]} barSize={20}>
+                {
+                  (player?.gripChartData?.labels || []).map((label: string, index: number) => {
+                    const isToday = label === "오늘";
+                    const fillColor = isToday ? "#FFFFFF" : "rgba(156, 163, 175, 0.4)";
+                    const strokeColor = isToday ? "#FFFFFF" : "#9CA3AF";
+                    return (
+                      <Cell key={`cell-left-${index}`} fill={fillColor} stroke={strokeColor} strokeWidth={1.5} />
+                    );
+                  })
+                }
+                <LabelList 
+                  dataKey="left" 
+                  position="top" 
+                  content={(props: any) => {
+                    const { x, y, width, value, index } = props;
+                    const isToday = player?.gripChartData?.labels?.[index] === "오늘";
+                    return (
+                      <g>
+                        <text x={x + width / 2} y={y - 22} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                          좌
+                        </text>
+                        <text x={x + width / 2} y={y - 8} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                          {value}
+                        </text>
+                      </g>
+                    );
+                  }}
+                />
+              </Bar>
+              <Bar dataKey="right" radius={[4, 4, 4, 4]} barSize={20}>
+                {
+                  (player?.gripChartData?.labels || []).map((label: string, index: number) => {
+                    const isToday = label === "오늘";
+                    const fillColor = isToday ? "#FFFFFF" : "rgba(156, 163, 175, 0.4)";
+                    const strokeColor = isToday ? "#FFFFFF" : "#9CA3AF";
+                    return (
+                      <Cell key={`cell-right-${index}`} fill={fillColor} stroke={strokeColor} strokeWidth={1.5} />
+                    );
+                  })
+                }
+                <LabelList 
+                  dataKey="right" 
+                  position="top" 
+                  content={(props: any) => {
+                    const { x, y, width, value, index } = props;
+                    const isToday = player?.gripChartData?.labels?.[index] === "오늘";
+                    return (
+                      <g>
+                        <text x={x + width / 2} y={y - 22} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                          우
+                        </text>
+                        <text x={x + width / 2} y={y - 8} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                          {value}
+                        </text>
+                      </g>
+                    );
+                  }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div className="chart-container"><canvas ref={gripChartRef}></canvas></div>
       </div>
 
       <div className="card-chart">
@@ -609,7 +625,7 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
             <div className="modal-header"><h4>지표 입력</h4><span className="material-icons-round close-btn" onClick={() => setIsDailyLogOpen(false)}>close</span></div>
             <div className="modal-body flex flex-col gap-6">
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">훈련 후 인지된 노력(1~10)</label>
+                <label className="text-sm font-bold text-white mb-3 block">인지된 훈련 강도(힘듦)</label>
                 <div className="text-center mb-4 text-xs font-bold transition-colors duration-150" style={{ color: logRpe <= 2 ? '#3b82f6' : logRpe <= 4 ? '#10b981' : logRpe <= 6 ? '#eab308' : logRpe <= 8 ? '#f97316' : '#ef4444' }}>
                   {logRpe} - {rpeLabels[logRpe]}
                 </div>
@@ -648,7 +664,7 @@ export default function CareTab({ player, isAgent, onUpdatePlayer }: { player: a
 
               <div>
                 <label className="text-sm font-bold text-white mb-3 block">수면 시간</label>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 pl-2 border-l-2 border-[rgba(255,255,255,0.1)] ml-2 mt-2">
                   <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
                   <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
                 </div>

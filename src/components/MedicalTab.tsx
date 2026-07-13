@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useModalHistory } from '../hooks/useModalHistory';
 import { Body } from 'react-body-selector';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 interface PainHistoryItem {
@@ -17,7 +18,8 @@ interface PainItem {
   diagnosis?: string;
   treatmentPeriod?: string;
   initialDate?: string;
-  history?: PainHistoryItem[];
+  initialLevel?: number;
+      history?: PainHistoryItem[];
   isPast?: boolean;
 }
 
@@ -134,10 +136,14 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   const [isEditingModalMode, setIsEditingModalMode] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{isOpen: boolean, id: string | null, type: 'current' | 'past' | 'timeline' | null}>({isOpen: false, id: null, type: null});
+  useModalHistory(deleteConfirmModal.isOpen, () => setDeleteConfirmModal({ isOpen: false, id: null, type: null }));
+
   const [historyModalPart, setHistoryModalPart] = useState<string | null>(null);
+  const [historyModalTab, setHistoryModalTab] = useState<'graph' | 'card'>('graph');
   
   useModalHistory(showPainModal, () => setShowPainModal(false));
-  useModalHistory(showHistoryModal, () => setShowHistoryModal(false));
+  useModalHistory(showHistoryModal, () => { setShowHistoryModal(false); setHistoryModalTab('graph'); });
   useModalHistory(confirmModal.isOpen, () => setConfirmModal({ isOpen: false, id: null }));
   const [hoveredGraphPart, setHoveredGraphPart] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -340,9 +346,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
   const handleDeleteTimelineItem = () => {
     if (editingTimelineItem) {
-      const updatedList = timelineItems.filter(item => item.id !== editingTimelineItem.id);
-      updateTimelineItems(updatedList);
-      setShowTimelineModal(false);
+      setDeleteConfirmModal({ isOpen: true, id: editingTimelineItem.id, type: 'timeline' });
     }
   };
 
@@ -439,17 +443,19 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
     let nextPainData = { ...painData };
     
-    // If not editing, but an injury already exists for this part, archive the old one
-    if (!isEditingModalMode && painData[selectedPart]) {
-      nextPainData[`${selectedPart}_archived_${Date.now()}`] = { ...painData[selectedPart], isPast: true };
+    // If not editing, but an injury already exists for this part, create a duplicate instead of archiving
+    let newPartId = selectedPart;
+    if (!isEditingModalMode && painData[selectedPart] && !painData[selectedPart].isPast) {
+      newPartId = `${selectedPart}_dup_${Date.now()}`;
     }
 
-    nextPainData[selectedPart] = { 
+    nextPainData[newPartId] = { 
       level: painLevel, 
       reason: painReason,
       diagnosis: painDiagnosis,
       treatmentPeriod: treatmentPeriod,
       initialDate: initialPainDate,
+      initialLevel: currentItem?.initialLevel ?? painLevel,
       history: newHistory,
       isPast: false
     };
@@ -463,6 +469,36 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         painData: nextPainData
       });
     }
+  };
+
+  
+  const confirmDelete = () => {
+    if (!deleteConfirmModal.id || !deleteConfirmModal.type) return;
+    
+    if (deleteConfirmModal.type === 'current') {
+      const nextPainData = { ...painData };
+      delete nextPainData[deleteConfirmModal.id];
+      setPainData(nextPainData);
+      setSelectedPart(null);
+      setShowPainModal(false);
+      if (onUpdatePlayer && player) {
+        onUpdatePlayer({ ...player, painData: nextPainData });
+      }
+    } else if (deleteConfirmModal.type === 'past') {
+      const nextPainData = { ...painData };
+      delete nextPainData[deleteConfirmModal.id];
+      setPainData(nextPainData);
+      if (onUpdatePlayer && player) {
+        onUpdatePlayer({ ...player, painData: nextPainData });
+      }
+    } else if (deleteConfirmModal.type === 'timeline') {
+      const updatedItems = timelineItems.filter(i => i.id !== deleteConfirmModal.id);
+      updateTimelineItems(updatedItems);
+      setEditingTimelineItem(null);
+      setShowTimelineModal(false);
+    }
+    
+    setDeleteConfirmModal({ isOpen: false, id: null, type: null });
   };
 
   const deletePainData = () => {
@@ -483,20 +519,13 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
   const permanentlyDeletePainData = () => {
     if (selectedPart) {
-      if (window.confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-        const nextPainData = { ...painData };
-        delete nextPainData[selectedPart];
-        setPainData(nextPainData);
-        setSelectedPart(null);
-        setShowPainModal(false);
-        if (onUpdatePlayer && player) {
-          onUpdatePlayer({
-            ...player,
-            painData: nextPainData
-          });
-        }
-      }
+      setDeleteConfirmModal({ isOpen: true, id: selectedPart, type: 'current' });
     }
+  };
+
+  const deletePastInjury = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeleteConfirmModal({ isOpen: true, id, type: 'past' });
   };
 
   const REGION_MAP: Record<'front' | 'back', Record<string, string>> = {
@@ -614,10 +643,15 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       return;
     }
 
-    const item = painData[id];
-    
-    if (item && !item.isPast) {
-      setHistoryModalPart(id);
+    // Find an active injury for this base ID
+    const activeEntry = (Object.entries(painData) as [string, any][]).find(([key, val]) => {
+      const cleanKey = key.includes('_dup_') ? key.split('_dup_')[0] : key;
+      return cleanKey === id && !val.isPast;
+    });
+
+    if (activeEntry) {
+      setHistoryModalPart(activeEntry[0]);
+      setHistoryModalTab('graph');
       setShowHistoryModal(true);
     }
   };
@@ -630,18 +664,20 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     return [
       ...(item.initialDate ? [{
         date: item.initialDate,
-        level: (item.history && item.history.length > 0) ? item.history[0].level : item.level
+        level: item.initialLevel ?? ((item.history && item.history.length > 0) ? item.history[0].level : item.level)
       }] : []),
       ...(item.history || [])
     ].reduce((acc: any[], current: any) => {
-      const x = acc.find(x => x.date === current.date);
-      if (!x) {
-        return acc.concat([current]);
+      const existingIdx = acc.findIndex(x => x.date === current.date);
+      if (existingIdx === -1) {
+        return acc.concat([{ ...current }]);
       } else {
-        return acc;
+        const newAcc = [...acc];
+        newAcc[existingIdx] = { ...newAcc[existingIdx], level: current.level };
+        return newAcc;
       }
     }, []).map((dataItem: any) => ({
-      name: dataItem.date.substring(5).replace('-', '/'),
+      name: dataItem.date ? dataItem.date.substring(5).replace('-', '/') : '',
       level: dataItem.level
     }));
   };
@@ -652,6 +688,12 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     if (id.includes('_archived_')) {
       cleanId = id.split('_archived_')[0];
     }
+    if (cleanId.includes('_dup_')) {
+      cleanId = cleanId.split('_dup_')[0];
+    }
+    
+    
+    
     const parts = cleanId.split('_');
     const view = parts.pop();
     const side = parts.pop();
@@ -684,32 +726,42 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     }
   };
 
-  const getMappedData = (viewSide: 'front' | 'back', isModal = false) => {
+    const getMappedData = (viewSide: 'front' | 'back', isModal = false) => {
     const result: any[] = [];
     
     if (isModal) {
-      if (selectedPart && selectedPart.endsWith(`_${viewSide}`)) {
-        const parts = selectedPart.split('_');
-        const view = parts.pop();
-        const side = parts.pop();
-        const region = parts.join('_');
-        
-        const slugs = REGION_TO_SLUGS[viewSide as 'front' | 'back'][region] || [];
-        slugs.forEach(slug => {
-          result.push({
-            slug: slug as any,
-            side: (side !== 'center' ? side : undefined) as any,
-            intensity: painLevel,
+      if (selectedPart) {
+        let cleanId = selectedPart;
+        if (cleanId.includes('_dup_')) cleanId = cleanId.split('_dup_')[0];
+        if (cleanId.endsWith(`_${viewSide}`)) {
+          const parts = cleanId.split('_');
+          const view = parts.pop();
+          const side = parts.pop();
+          const region = parts.join('_');
+          
+          const slugs = REGION_TO_SLUGS[viewSide as 'front' | 'back'][region] || [];
+          slugs.forEach(slug => {
+            result.push({
+              slug: slug as any,
+              side: (side !== 'center' ? side : undefined) as any,
+              intensity: painLevel,
+            });
           });
-        });
+        }
       }
       return result;
     }
 
     (Object.entries(painData) as [string, any][])
-      .filter(([id, item]) => id.endsWith(`_${viewSide}`) && !item.isPast)
+      .filter(([id, item]) => {
+        let cleanId = id;
+        if (cleanId.includes('_dup_')) cleanId = cleanId.split('_dup_')[0];
+        return cleanId.endsWith(`_${viewSide}`) && !item.isPast;
+      })
       .forEach(([id, item]) => {
-        const parts = id.split('_');
+        let cleanId = id;
+        if (cleanId.includes('_dup_')) cleanId = cleanId.split('_dup_')[0];
+        const parts = cleanId.split('_');
         const view = parts.pop();
         const side = parts.pop();
         const region = parts.join('_');
@@ -751,6 +803,10 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     if (id.includes('_archived_')) {
       cleanId = id.split('_archived_')[0];
     }
+    if (cleanId.includes('_dup_')) {
+      cleanId = cleanId.split('_dup_')[0];
+    }
+    
     const parts = cleanId.split('_');
     const viewSide = parts.pop();
     const side = parts.pop();
@@ -809,18 +865,23 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
           
           {/* Top: Interactive Body Map */}
           <div className="flex flex-col">
-            <div className="flex justify-center gap-16 md:gap-24 items-start relative mb-8">
-              {/* Front Silhouette */}
-              <div className="flex flex-col items-center">
-                <span className="text-white text-sm font-semibold mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-4 py-1 text-center">앞</span>
-                {renderBodySelector('front')}
-              </div>
-              
-              {/* Back Silhouette */}
-              <div className="flex flex-col items-center">
-                <span className="text-white text-sm font-semibold mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-4 py-1 text-center">뒤</span>
-                {renderBodySelector('back')}
-              </div>
+            <TransformWrapper centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
+              <TransformComponent wrapperClass="w-full">
+                <div className="flex justify-center gap-16 md:gap-24 items-start relative mb-8 w-full min-w-max" style={{ touchAction: 'none' }}>
+                  {/* Front Silhouette */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-white text-sm font-semibold mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-4 py-1 text-center">앞</span>
+                    {renderBodySelector('front')}
+                  </div>
+                  
+                  {/* Back Silhouette */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-white text-sm font-semibold mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-4 py-1 text-center">뒤</span>
+                    {renderBodySelector('back')}
+                  </div>
+                </div>
+              </TransformComponent>
+            </TransformWrapper>
 
               {/* Pain Input Modal */}
               {showPainModal && (
@@ -838,41 +899,26 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       <div className="flex flex-col gap-4">
                         <div>
                           <label className="text-sm font-bold text-white mb-3 block">부상 발생일</label>
-                          <div className="relative">
-                            <input 
-                              type="text" 
-                              value={formatKoreanDate(initialPainDate)} 
-                              readOnly
-                              className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] pointer-events-none relative z-0" 
-                            />
-                            <span className="material-icons-round absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-0">calendar_today</span>
-                            <input 
-                              type="date" 
-                              value={initialPainDate}
-                              onChange={(e) => setInitialPainDate(e.target.value)}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
-                            />
-                          </div>
+                          <input 
+                            type="date" 
+                            value={initialPainDate}
+                            onChange={(e) => setInitialPainDate(e.target.value)}
+                            disabled={isEditingModalMode}
+                            className={`w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] ${isEditingModalMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            onClick={(e) => { if (!isEditingModalMode && (e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
+                          />
                         </div>
 
                         {selectedPart && isEditingModalMode && painData[selectedPart] && (
                           <div>
                             <label className="text-sm font-bold text-white mb-3 block">현재 부상 상태</label>
-                            <div className="relative">
-                              <input 
-                                type="text" 
-                                value={formatKoreanDate(painDate)} 
-                                readOnly
-                                className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] pointer-events-none relative z-0" 
-                              />
-                              <span className="material-icons-round absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-0">calendar_today</span>
-                              <input 
-                                type="date" 
-                                value={painDate}
-                                onChange={(e) => setPainDate(e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
-                              />
-                            </div>
+                            <input 
+                              type="date" 
+                              value={painDate}
+                              onChange={(e) => setPainDate(e.target.value)}
+                              className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] cursor-pointer"
+                              onClick={(e) => { if ((e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
+                            />
                           </div>
                         )}
                       </div>
@@ -888,14 +934,18 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                               </span>
                             </div>
                           )}
-                          <div className="flex justify-center gap-4 sm:gap-12 w-full">
-                            <div className="flex flex-col items-center">
-                              {renderBodySelector('front', true)}
-                            </div>
-                            <div className="flex flex-col items-center">
-                              {renderBodySelector('back', true)}
-                            </div>
-                          </div>
+                          <TransformWrapper centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
+                            <TransformComponent wrapperClass="w-full">
+                              <div className="flex justify-center gap-4 sm:gap-12 w-full min-w-max" style={{ touchAction: 'none' }}>
+                                <div className="flex flex-col items-center">
+                                  {renderBodySelector('front', true)}
+                                </div>
+                                <div className="flex flex-col items-center">
+                                  {renderBodySelector('back', true)}
+                                </div>
+                              </div>
+                            </TransformComponent>
+                          </TransformWrapper>
                         </div>
                       </div>
 
@@ -1015,6 +1065,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>4단계(심한 통증)</div>
                             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-700"></span>5단계(극심한 통증)</div>
                           </div>
+
                         </div>
                       </div>
                     )}
@@ -1055,26 +1106,24 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                     </div>
                     
                     {/* Modal Footer */}
-                    <div className="flex gap-3 mt-2">
+                    <div className="flex gap-2 sm:gap-3 mt-2">
                       {selectedPart && isEditingModalMode && painData[selectedPart] && (
-                        <button onClick={deletePainData} className="flex-1 py-4 border border-[rgba(255,255,255,0.08)] rounded-xl text-gray-400 hover:bg-[rgba(255,255,255,0.05)] hover:text-white text-base font-bold transition-colors">
-                          부상 종료
-                        </button>
+                        <>
+                          <button onClick={permanentlyDeletePainData} className="flex-1 py-3 sm:py-4 border border-red-500/20 bg-red-500/5 rounded-xl text-red-500 hover:bg-red-500/10 text-sm sm:text-base font-bold transition-colors">
+                            삭제
+                          </button>
+                          <button onClick={deletePainData} className="flex-1 py-3 sm:py-4 border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] rounded-xl text-gray-400 hover:bg-[rgba(255,255,255,0.05)] hover:text-white text-sm sm:text-base font-bold transition-colors">
+                            종료
+                          </button>
+                        </>
                       )}
                       <button 
                         onClick={savePainData} 
-                        className={`py-4 rounded-xl text-base font-bold transition-all btn-primary ${selectedPart && isEditingModalMode && painData[selectedPart] ? 'flex-[2]' : 'w-full'}`}
+                        className="flex-1 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-bold transition-all btn-primary"
                       >
                         저장
                       </button>
                     </div>
-                    {selectedPart && isEditingModalMode && painData[selectedPart] && (
-                      <div className="mt-2 text-center">
-                        <button onClick={permanentlyDeletePainData} className="w-full py-2 rounded-xl text-red-500 hover:bg-red-500/10 text-[13px] font-bold transition-colors">
-                          삭제
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -1118,19 +1167,48 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
               {showHistoryModal && historyModalPart && (
                 <div className="fixed inset-0 z-[1050] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
                   <div className="card-chart bg-[var(--card-bg)] w-full max-w-2xl rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <span className="text-xs font-bold text-gray-400 mb-2 block">부상 기록</span>
-                        <h2 className="text-lg font-bold text-white mb-0">{getPartName(historyModalPart)}</h2>
+                    <div className="flex flex-col mb-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <span className="text-xs font-bold text-gray-400 mb-2 block">부상 기록</span>
+                          <div className="flex flex-col gap-1.5">
+                            <h2 className="text-lg font-bold text-white mb-0">{getPartName(historyModalPart)}</h2>
+                            {painData[historyModalPart]?.diagnosis && (
+                              <p className="text-[12px] text-gray-300"><span className="text-gray-500 mr-1">진단명:</span> {painData[historyModalPart].diagnosis}</p>
+                            )}
+                            {painData[historyModalPart]?.reason && (
+                              <p className="text-[12px] text-gray-300"><span className="text-gray-500 mr-1">부상 내용:</span> {painData[historyModalPart].reason}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => { setShowHistoryModal(false); setHistoryModalTab('graph'); }} className="text-gray-400 hover:text-white transition-colors">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                          </svg>
+                        </button>
                       </div>
-                      <button onClick={() => setShowHistoryModal(false)} className="text-gray-400 hover:text-white transition-colors">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                      </button>
+
+                      {painData[historyModalPart] && !painData[historyModalPart].isPast && (
+                        <div className="flex p-1 bg-[rgba(255,255,255,0.05)] rounded-xl mt-2 w-full">
+                          <button
+                            onClick={() => setHistoryModalTab('graph')}
+                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${historyModalTab === 'graph' ? 'bg-[var(--primary-color)] text-[#1a1a1a]' : 'text-gray-400 hover:text-white'}`}
+                          >
+                            그래프
+                          </button>
+                          <button
+                            onClick={() => setHistoryModalTab('card')}
+                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${historyModalTab === 'card' ? 'bg-[var(--primary-color)] text-[#1a1a1a]' : 'text-gray-400 hover:text-white'}`}
+                          >
+                            부상 내역 카드
+                          </button>
+                        </div>
+                      )}
                     </div>
                     
+                    {historyModalTab === 'graph' && (
+                    <>
                     <div className="h-[300px] w-full mt-2">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart
@@ -1185,6 +1263,93 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>4단계(심한 통증)</div>
                       <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-700"></span>5단계(극심한 통증)</div>
                     </div>
+                    </>
+                  )}
+
+                  {historyModalTab === 'card' && historyModalPart && (
+                      <div className="mt-2 text-left flex flex-col gap-4">
+                        {(Object.entries(painData) as [string, any][]).filter(([id, data]) => {
+                          const cleanBaseId = historyModalPart.includes('_dup_') ? historyModalPart.split('_dup_')[0] : historyModalPart;
+                          return !data.isPast && (id === cleanBaseId || id.startsWith(cleanBaseId + '_dup_'));
+                        }).map(([cardId, cardData]) => (
+                          <div 
+                            key={cardId}
+                            onClick={() => {
+                              setHistoryModalPart(cardId);
+                              setHistoryModalTab('graph');
+                            }}
+                            className="card-chart cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors !mb-0 flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.25)] border border-[var(--card-border)] bg-[rgba(255,255,255,0.02)] rounded-[24px] p-5 relative overflow-hidden"
+                          >
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex flex-col">
+                                <span className="text-[13px] sm:text-[14px] font-bold text-gray-400 mb-1 truncate max-w-[200px] sm:max-w-none">
+                                  { `부상 발생일: ${cardData.initialDate ? formatKoreanDate(cardData.initialDate) : formatKoreanDate(new Date().toISOString().split("T")[0])}` }
+                                </span>
+                                <span className="text-[13px] sm:text-[14px] font-bold text-gray-400 truncate max-w-[200px] sm:max-w-none">
+                                  {`현재 부상 상태: ${cardData.history && cardData.history.length > 0 ? formatKoreanDate(cardData.history[cardData.history.length - 1].date) : (cardData.initialDate ? formatKoreanDate(cardData.initialDate) : formatKoreanDate(new Date().toISOString().split("T")[0]))}`}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowHistoryModal(false);
+                                    handlePartClick(cardId, cardData);
+                                  }}
+                                  className="text-[12px] font-bold text-[var(--primary-color)] bg-[rgba(212,175,55,0.1)] hover:bg-[rgba(212,175,55,0.2)] border border-[rgba(212,175,55,0.2)] px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                  수정하기
+                                </button>
+                                <div className="flex flex-col items-end gap-1 text-[13px] sm:text-[14px] font-semibold text-gray-400 mt-1 sm:mt-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span 
+                                      className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                      style={{ backgroundColor: getPainColor(cardData.level) }}
+                                    />
+                                    <span>{cardData.level}단계</span>
+                                  </div>
+                                  <span className="whitespace-nowrap text-[12px] sm:text-[13px] text-gray-500">
+                                    ({getPainLevelText(cardData.level)})
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                              
+                            <div className="flex items-center gap-3.5 mb-5">
+                              <div className="w-12 h-12 bg-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.05)] shrink-0 relative group-hover:scale-105 transition-transform">
+                                <div className="absolute inset-0 flex items-center justify-center opacity-80 pointer-events-none" style={{ transform: getPartTransform(cardId) }}>
+                                   <Body
+                                     data={getSinglePartData(cardId, cardData.level)}
+                                     side={cardId.match(/_(front|back)(_|$)/)?.[1] === 'back' ? 'back' : 'front'}
+                                     gender="male"
+                                     scale={1.0}
+                                     colors={PAIN_COLORS}
+                                     border="rgba(255,255,255,0.2)"
+                                   />
+                                </div>
+                              </div>
+                              <div className="flex flex-col justify-center overflow-hidden">
+                                <span className="text-sm font-bold text-white mb-1 truncate">{getPartName(cardId)}</span>
+                                {cardData.diagnosis ? (
+                                  <span className="text-xs text-[var(--primary-color)] font-semibold truncate bg-[rgba(212,175,55,0.1)] px-2 py-0.5 rounded inline-block w-fit">
+                                    {cardData.diagnosis}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-500 font-medium truncate">진단명 미입력</span>
+                                )}
+                              </div>
+                            </div>
+                              
+                            <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4">
+                              <span className="text-[11px] font-bold text-gray-500 block mb-2 uppercase tracking-wider">부상 내용</span>
+                              <p className="text-sm text-gray-300 font-medium leading-relaxed">
+                                {cardData.reason || '입력된 부상 내용이 없습니다.'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1234,7 +1399,6 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                   </div>
                 </div>
               )}
-            </div>
             
             {/* Legend */}
             <div className="flex flex-wrap justify-center items-center gap-4 text-xs font-semibold text-gray-500 mt-8">
@@ -1253,7 +1417,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(Object.values(painData) as any[]).filter(item => !item.isPast).length === 0 ? (
-                <div className="col-span-full py-10 text-center text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
+                <div className="col-span-full py-10 text-center text-[12px] text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
                   현재 등록된 부상이 없습니다.
                 </div>
               ) : (
@@ -1302,7 +1466,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                           <div className="absolute inset-0 flex items-center justify-center opacity-80 pointer-events-none" style={{ transform: getPartTransform(id) }}>
                              <Body
                                data={getSinglePartData(id, item.level)}
-                               side={id.endsWith('_back') ? 'back' : 'front'}
+                               side={id.match(/_(front|back)(_|$)/)?.[1] === 'back' ? 'back' : 'front'}
                                gender="male"
                                scale={1.0}
                                colors={PAIN_COLORS}
@@ -1335,7 +1499,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                           <span className="text-[14px] font-bold text-gray-500 block mb-2">치료기간</span>
                           <div className="flex flex-wrap gap-2">
                             <span className="text-[14px] font-medium text-gray-300 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] px-2.5 py-1.5 rounded-md leading-none truncate max-w-[150px]">
-                              {item.treatmentPeriod || '입력된 치료기간 없음'}
+                              {item.treatmentPeriod || <span className="text-[12px]">입력된 치료기간 없음</span>}
                             </span>
                           </div>
                         </div>
@@ -1386,7 +1550,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
       <div className="card-chart mb-8">
         {timelineItems.filter(item => item.type === 'upcoming').length === 0 ? (
-          <div className="py-12 text-center text-gray-400 font-medium">
+          <div className="py-12 text-center text-[12px] text-gray-400 font-medium">
             <span className="material-icons-round text-gray-600 text-4xl block mb-3">timeline</span>
             등록된 진료 기록 타임라인이 없습니다.
           </div>
@@ -1513,13 +1677,19 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
             </div>
             <div className="flex gap-3">
               <button 
-                onClick={() => setShowCustomTimeModal(false)}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCustomTimeModal(false);
+                }}
                 className="flex-1 py-3 bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-white text-sm font-bold rounded-xl transition-colors"
               >
                 취소
               </button>
               <button 
-                onClick={() => {
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   let finalHour = parseInt(tempHour, 10);
                   if (tempAmPm === 'PM' && finalHour !== 12) finalHour += 12;
                   if (tempAmPm === 'AM' && finalHour === 12) finalHour = 0;
@@ -1555,7 +1725,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                 
                 if (pastItems.length === 0) {
                   return (
-                    <div className="py-12 text-center text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
+                    <div className="py-12 text-center text-[12px] text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
                       <span className="material-icons-round text-gray-600 text-4xl block mb-3">history</span>
                       완료된 부상 내역이 없습니다.
                     </div>
@@ -1662,9 +1832,17 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                                     </span>
                                   </div>
                                 </div>
-                                <span className={`material-icons-round text-gray-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                  expand_more
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => deletePastInjury(e, item.id)}
+                                    className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center"
+                                  >
+                                    <span className="material-icons-round text-[18px]">delete</span>
+                                  </button>
+                                  <span className={`material-icons-round text-gray-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                    expand_more
+                                  </span>
+                                </div>
                               </div>
                               
                               {isExpanded && (
@@ -1734,7 +1912,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                 
                 if (pastItems.length === 0) {
                   return (
-                    <div className="py-12 text-center text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
+                    <div className="py-12 text-center text-[12px] text-gray-400 font-medium bg-[rgba(255,255,255,0.02)] rounded-2xl border border-[rgba(255,255,255,0.05)]">
                       <span className="material-icons-round text-gray-600 text-4xl block mb-3">history</span>
                       완료된 진료 기록이 없습니다.
                     </div>
@@ -1830,9 +2008,20 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                                     </span>
                                   </div>
                                 </div>
-                                <span className={`material-icons-round text-gray-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                  expand_more
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmModal({ isOpen: true, id: item.id, type: 'timeline' });
+                                    }}
+                                    className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center"
+                                  >
+                                    <span className="material-icons-round text-[18px]">delete</span>
+                                  </button>
+                                  <span className={`material-icons-round text-gray-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                    expand_more
+                                  </span>
+                                </div>
                               </div>
                               
                               {isExpanded && (
@@ -1916,12 +2105,12 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                     placeholder="날짜를 선택해주세요"
                     className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] pointer-events-none relative z-0"
                   />
-                  <span className="material-icons-round absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-0">calendar_today</span>
                   <input
                     type="date"
                     value={timelineFormDateLabel}
                     onChange={(e) => setTimelineFormDateLabel(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    onClick={(e) => { if ((e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
                   />
                 </div>
               </div>
@@ -2014,6 +2203,30 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                   저장
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#2a2a2a] rounded-2xl p-6 max-w-sm w-full border border-[rgba(255,255,255,0.1)] shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">항목 삭제</h3>
+            <p className="text-gray-400 text-sm mb-6">정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeleteConfirmModal({ isOpen: false, id: null, type: null })} 
+                className="flex-1 py-3 bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-white rounded-xl text-sm font-bold transition-colors border border-[rgba(255,255,255,0.1)]"
+              >
+                취소
+              </button>
+              <button 
+                onClick={confirmDelete} 
+                className="flex-1 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-sm font-bold transition-colors border border-red-500/20"
+              >
+                삭제하기
+              </button>
             </div>
           </div>
         </div>
