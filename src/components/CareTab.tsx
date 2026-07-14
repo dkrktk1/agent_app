@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { downloadSampleCSV, rebuildChartsFromSchedules } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
+import { useModalHistory } from '../hooks/useModalHistory';
 
 const getAcwrColor = (value: number) => {
   if (value >= 1.5) return '#ef4444';
@@ -146,10 +147,23 @@ const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val:
 export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: { player: any, isAgent: boolean, onUpdatePlayer: (newData: any) => void, key?: string }) {
   const player = React.useMemo(() => rebuildChartsFromSchedules(rawPlayer), [rawPlayer]);
   const [isDailyLogOpen, setIsDailyLogOpen] = useState(false);
+  
+  const [showPastGripModal, setShowPastGripModal] = useState(false);
+  const [pastGripYear, setPastGripYear] = useState<string>(new Date().getFullYear().toString());
+  const [pastGripMonth, setPastGripMonth] = useState<string>('all');
+  const [pastGripWeek, setPastGripWeek] = useState<string>('all');
+  
+  const [showPastSleepModal, setShowPastSleepModal] = useState(false);
+  const [pastSleepYear, setPastSleepYear] = useState<string>(new Date().getFullYear().toString());
+  const [pastSleepMonth, setPastSleepMonth] = useState<string>('all');
+  const [pastSleepWeek, setPastSleepWeek] = useState<string>('all');
+
+  useModalHistory(showPastGripModal, () => setShowPastGripModal(false));
+  useModalHistory(showPastSleepModal, () => setShowPastSleepModal(false));
 
   
   const [logRpe, setLogRpe] = useState(7);
-  const [logDuration, setLogDuration] = useState<number | string>(120);
+  const [logDuration, setLogDuration] = useState<number | string>('');
   const [logGrip, setLogGrip] = useState<number | string>(player?.metrics?.gripRaw ?? 0);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
@@ -157,8 +171,8 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     const [gripLeftToday, setGripLeftToday] = useState(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
     const [gripRightToday, setGripRightToday] = useState(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
 
-  const [logGripLeft, setLogGripLeft] = useState<number | string>(player?.gripChartData?.leftValues?.[(player?.gripChartData?.leftValues?.length ?? 0) - 1] ?? 0);
-  const [logGripRight, setLogGripRight] = useState<number | string>(player?.gripChartData?.rightValues?.[(player?.gripChartData?.rightValues?.length ?? 0) - 1] ?? 0);
+  const [logGripLeft, setLogGripLeft] = useState<number | string>('');
+  const [logGripRight, setLogGripRight] = useState<number | string>('');
 
   const rpeLabels: Record<number, string> = {
     1: '매우 쉬움',
@@ -182,6 +196,148 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   }, [player]);
 
   
+  const renderPastHistoryModal = (type: 'grip' | 'sleep') => {
+    const isGrip = type === 'grip';
+    const showModal = isGrip ? showPastGripModal : showPastSleepModal;
+    const setShowModal = isGrip ? setShowPastGripModal : setShowPastSleepModal;
+    if (!showModal) return null;
+
+    const year = isGrip ? pastGripYear : pastSleepYear;
+    const setYear = isGrip ? setPastGripYear : setPastSleepYear;
+    const month = isGrip ? pastGripMonth : pastSleepMonth;
+    const setMonth = isGrip ? setPastGripMonth : setPastSleepMonth;
+    const week = isGrip ? pastGripWeek : pastSleepWeek;
+    const setWeek = isGrip ? setPastGripWeek : setPastSleepWeek;
+
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length: 3}, (_, i) => (currentYear - i).toString());
+
+    const historyData = Array.from({length: 60}, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i - 7);
+      const dStr = d.toISOString().split('T')[0];
+      if (isGrip) {
+        return { date: dStr, left: Math.floor(Math.random() * 10 + 45), right: Math.floor(Math.random() * 10 + 46) };
+      } else {
+        const duration = Number((Math.random() * 4 + 5).toFixed(1));
+        const startHour = 22 + Math.floor(Math.random() * 4);
+        const startMin = Math.floor(Math.random() * 12) * 5;
+        const startH = startHour >= 24 ? startHour - 24 : startHour;
+        const endTotalMin = (startHour * 60 + startMin) + Math.floor(duration * 60);
+        const endH = Math.floor(endTotalMin / 60) % 24;
+        const endM = endTotalMin % 60;
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return { 
+          date: dStr, 
+          duration,
+          sleepStart: `${pad(startH)}:${pad(startMin)}`,
+          sleepEnd: `${pad(endH)}:${pad(endM)}`
+        };
+      }
+    });
+
+    const getWeekOfMonth = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const date = d.getDate();
+      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).getDay();
+      return Math.ceil((date + firstDay) / 7);
+    };
+
+    const filteredData = historyData.filter(item => {
+      const itemYear = item.date.substring(0, 4);
+      if (year !== itemYear) return false;
+      if (month !== 'all') {
+        const itemMonth = item.date.substring(5, 7);
+        if (itemMonth !== month) return false;
+      }
+      if (week !== 'all') {
+        const itemWeek = getWeekOfMonth(item.date).toString();
+        if (itemWeek !== week) return false;
+      }
+      return true;
+    });
+
+    return (
+      <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+        <div className="card-chart bg-[var(--card-bg)] w-full max-w-2xl rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
+          <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+            <h4 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="material-icons-round text-gray-400">history</span>
+              과거 {isGrip ? '악력' : '수면 패턴'} 기록
+            </h4>
+            <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => setShowModal(false)}>close</span>
+          </div>
+          <div className="p-6 overflow-y-auto">
+            <div className="flex flex-col gap-6">
+              <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+                <select value={year} onChange={(e) => setYear(e.target.value)} className="flex-1 bg-[rgba(255,255,255,0.05)] text-white px-4 py-2.5 rounded-xl border border-[rgba(255,255,255,0.1)] text-sm font-bold focus:border-[#3b82f6] outline-none">
+                  {years.map(y => (
+                    <option key={y} value={y} className="bg-[#1e1e1e]">{y}년</option>
+                  ))}
+                </select>
+                <select value={month} onChange={(e) => setMonth(e.target.value)} className="flex-1 bg-[rgba(255,255,255,0.05)] text-white px-4 py-2.5 rounded-xl border border-[rgba(255,255,255,0.1)] text-sm font-bold focus:border-[#3b82f6] outline-none">
+                  <option value="all" className="bg-[#1e1e1e]">전체 월</option>
+                  {Array.from({length: 12}, (_, i) => (i + 1).toString().padStart(2, '0')).map(m => (
+                    <option key={m} value={m} className="bg-[#1e1e1e]">{parseInt(m)}월</option>
+                  ))}
+                </select>
+                <select value={week} onChange={(e) => setWeek(e.target.value)} className="flex-1 bg-[rgba(255,255,255,0.05)] text-white px-4 py-2.5 rounded-xl border border-[rgba(255,255,255,0.1)] text-sm font-bold focus:border-[#3b82f6] outline-none">
+                  <option value="all" className="bg-[#1e1e1e]">전체 주</option>
+                  {[1, 2, 3, 4, 5].map(w => (
+                    <option key={w} value={w.toString()} className="bg-[#1e1e1e]">{w}주차</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-3">
+                {filteredData.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500 font-medium">해당 기간의 기록이 없습니다.</div>
+                ) : (
+                  filteredData.map((item: any, idx: number) => (
+                    <div key={idx} className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
+                          <span className="material-icons-round text-gray-400 text-[20px]">{isGrip ? 'fitness_center' : 'bedtime'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-white font-bold text-[15px]">{item.date}</span>
+                          <span className="text-gray-400 text-[13px]">{getWeekOfMonth(item.date)}주차 기록</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-right">
+                        {isGrip ? (
+                          <>
+                            <div className="flex flex-col">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">왼손</span>
+                              <span className="text-[15px] font-bold text-white">{item.left} kg</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">오른손</span>
+                              <span className="text-[15px] font-bold text-white">{item.right} kg</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex gap-4">
+                            <div className="flex flex-col text-left border-r border-[rgba(255,255,255,0.1)] pr-4">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">취침 - 기상</span>
+                              <span className="text-[14px] font-medium text-gray-300">{item.sleepStart} ~ {item.sleepEnd}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">총 수면</span>
+                              <span className="text-[15px] font-bold text-white">{item.duration} 시간</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const submitDailyLog = () => {
     const gl = Number(logGripLeft) || 0;
     const gr = Number(logGripRight) || 0;
@@ -286,14 +442,24 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     return { status: '치명적', colorClass: 'text-gray-500', borderClass: 'border-gray-500/30', bgClass: 'bg-gray-500/10' };
   };
 
-    const calcGripAvg = (arr?: number[]) => {
-    if (!arr || arr.length === 0) return 0;
-    const valid = arr.filter(v => v > 0);
-    if (valid.length === 0) return 0;
-    return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1));
+  const calcTop3Avg = (prop: string) => {
+    if (!player?.schedules || player.schedules.length === 0) return 0;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    const validValues = player.schedules
+      .filter((s: any) => s.date >= thirtyDaysAgoStr && s[prop] !== undefined && s[prop] > 0)
+      .map((s: any) => s[prop])
+      .sort((a: number, b: number) => b - a)
+      .slice(0, 3);
+      
+    if (validValues.length === 0) return 0;
+    return Number((validValues.reduce((a: number, b: number) => a + b, 0) / validValues.length).toFixed(1));
   };
-  const gripLeftBaseline = calcGripAvg(player?.gripChartData?.leftValues);
-  const gripRightBaseline = calcGripAvg(player?.gripChartData?.rightValues);
+
+  const gripLeftBaseline = calcTop3Avg('gripLeft');
+  const gripRightBaseline = calcTop3Avg('gripRight');
 
   const isLeftEmpty = gripLeftBaseline === 0 && gripLeftToday === 0;
   const isRightEmpty = gripRightBaseline === 0 && gripRightToday === 0;
@@ -307,7 +473,12 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     <div className="tab-pane active pb-20">
       <div className="section-title-group">
         <h3>피로도 및 컨디셔닝 지표</h3>
-        <button className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity" onClick={() => setIsDailyLogOpen(true)}>
+        <button className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity" onClick={() => {
+          setLogDuration('');
+          setLogGripLeft('');
+          setLogGripRight('');
+          setIsDailyLogOpen(true);
+        }}>
           <div className="w-5 h-5 rounded-full bg-[var(--primary-color)] text-[#050608] flex items-center justify-center">
             <span className="material-icons-round text-[16px] font-bold">add</span>
           </div>
@@ -501,8 +672,15 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
         </div>
       </div>
       <div className="card-chart">
-        <div className="chart-header">
+        <div className="chart-header flex justify-between items-center mb-4">
           <h4 style={{ marginBottom: 0 }}>최근 7일 악력 추이</h4>
+          <button 
+            onClick={() => setShowPastGripModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            지난 기록 보기
+          </button>
         </div>
         <div className="h-[280px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
@@ -512,9 +690,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 left: player?.gripChartData?.leftValues?.[idx] || player?.gripChartData?.values?.[idx] || 0,
                 right: player?.gripChartData?.rightValues?.[idx] || player?.gripChartData?.values?.[idx] || 0
               })) || []}
-              margin={{ top: 30, right: 10, left: 0, bottom: 0 }}
-              barGap={2}
-              barCategoryGap="10%"
+              margin={{ top: 30, right: 10, left: -25, bottom: 0 }}
+              barGap={4}
+              barCategoryGap="40%"
             >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="name" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
@@ -525,8 +703,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 axisLine={false} 
                 tickLine={false} 
                 dx={-10} 
+                width={30}
               />
-              <Bar dataKey="left" radius={[4, 4, 4, 4]} barSize={20}>
+              <Bar dataKey="left" radius={[4, 4, 4, 4]} maxBarSize={10}>
                 {
                   (player?.gripChartData?.labels || []).map((label: string, index: number) => {
                     const isToday = label === "오늘";
@@ -556,7 +735,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                   }}
                 />
               </Bar>
-              <Bar dataKey="right" radius={[4, 4, 4, 4]} barSize={20}>
+              <Bar dataKey="right" radius={[4, 4, 4, 4]} maxBarSize={10}>
                 {
                   (player?.gripChartData?.labels || []).map((label: string, index: number) => {
                     const isToday = label === "오늘";
@@ -592,7 +771,16 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       </div>
 
       <div className="card-chart">
-        <div className="chart-header"><h4>최근 7일 수면 패턴 (Sleep Trend)</h4></div>
+        <div className="chart-header flex justify-between items-center mb-4">
+          <h4 style={{ marginBottom: 0 }}>최근 7일 수면 패턴 (Sleep Trend)</h4>
+          <button 
+            onClick={() => setShowPastSleepModal(true)}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+          >
+            <span className="material-icons-round text-[18px]">history</span>
+            지난 기록 보기
+          </button>
+        </div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
@@ -619,11 +807,16 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
 
 
 
+      {showPastGripModal && renderPastHistoryModal("grip")}
+      {showPastSleepModal && renderPastHistoryModal("sleep")}
       {isDailyLogOpen && (
-        <div className="modal active">
-          <div className="modal-content">
-            <div className="modal-header"><h4>지표 입력</h4><span className="material-icons-round close-btn" onClick={() => setIsDailyLogOpen(false)}>close</span></div>
-            <div className="modal-body flex flex-col gap-6">
+        <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+              <h4 className="text-[14px] font-bold text-white flex items-center gap-2">지표 입력</h4>
+              <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => setIsDailyLogOpen(false)}>close</span>
+            </div>
+            <div className="p-6 overflow-y-auto flex flex-col gap-6">
               <div>
                 <label className="text-sm font-bold text-white mb-3 block">인지된 훈련 강도(힘듦)</label>
                 <div className="text-center mb-4 text-xs font-bold transition-colors duration-150" style={{ color: logRpe <= 2 ? '#3b82f6' : logRpe <= 4 ? '#10b981' : logRpe <= 6 ? '#eab308' : logRpe <= 8 ? '#f97316' : '#ef4444' }}>

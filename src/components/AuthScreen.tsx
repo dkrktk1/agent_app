@@ -44,7 +44,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
       return;
     }
 
-    let newUser: any = { userId, password, role };
+    let newUser: any = { userId, password, role, createdAt: new Date().toISOString() };
 
     if (role === "player") {
       if (!playerName || !playerPosition || !playerBirthdate || !playerTeam || !playerNumber || !playerHandedness || !playerSalary) {
@@ -230,12 +230,9 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                     <option value="좌투양타" className="text-black">좌투양타 (스위치)</option>
                   </select>
                 </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>생년월일</label>
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <span className="material-icons-round">calendar_today</span>
-                    <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} onKeyDown={e => e.preventDefault()} onClick={e => { try { e.currentTarget.showPicker(); } catch (err) {} }} max="9999-12-31" required />
-                  </div>
+                <div className="input-group-select">
+                  <label>생년월일</label>
+                  <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required />
                 </div>
                 <div className="input-group">
                   <span className="material-icons-round">payments</span>

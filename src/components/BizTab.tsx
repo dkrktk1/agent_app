@@ -582,9 +582,9 @@ ${proposalPoint}
               </button>
             </div>
             <div className="flex flex-col gap-4 mb-6">
-              <div>
-                <label className="text-sm font-bold text-white mb-3 block">날짜</label>
-                <input type="date" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" value={invDate} onChange={e => setInvDate(e.target.value)} />
+              <div className="input-group-select">
+                <label>날짜</label>
+                <input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} max="9999-12-31" />
               </div>
               <div>
                 <label className="text-sm font-bold text-white mb-3 block">품명</label>
@@ -619,9 +619,9 @@ ${proposalPoint}
               </button>
             </div>
             <div className="flex flex-col gap-4 mb-6">
-              <div>
-                <label className="text-sm font-bold text-white mb-3 block">날짜</label>
-                <input type="date" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" value={sponsDate} onChange={e => setSponsDate(e.target.value)} />
+              <div className="input-group-select">
+                <label>날짜</label>
+                <input type="date" value={sponsDate} onChange={e => setSponsDate(e.target.value)} max="9999-12-31" />
               </div>
               <div>
                 <label className="text-sm font-bold text-white mb-3 block">후원사</label>

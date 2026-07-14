@@ -716,13 +716,15 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
       </div>
       
       {isAddModalOpen && (
-        <div className="modal active z-50">
-          <div className="modal-content max-w-sm">
-            <div className="modal-header">
-              <h4>{editingEventOriginalIndex !== null ? '일정 수정' : '일정 추가'}</h4>
-              <span className="material-icons-round close-btn" onClick={closeModal}>close</span>
+        <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+              <h4 className="text-[14px] font-bold text-white flex items-center gap-2">
+                {editingEventOriginalIndex !== null ? '일정 수정' : '일정 추가'}
+              </h4>
+              <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={closeModal}>close</span>
             </div>
-            <div className="modal-body flex flex-col gap-4">
+            <div className="p-6 overflow-y-auto flex flex-col gap-4">
               <div className="input-group-select">
                 <label>일정 분류</label>
                 <select value={newEventType} onChange={e => setNewEventType(e.target.value as any)}>
@@ -731,8 +733,8 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                   <option value="care">컨디셔닝 일정</option>
                 </select>
               </div>
-              <div className="input-group">
-                <span className="material-icons-round">calendar_today</span>
+              <div className="input-group-select">
+                <label>일정 날짜</label>
                 <input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} max="9999-12-31" required />
               </div>
               {newEventType === 'match' && (
@@ -759,27 +761,35 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                       <option value="어웨이">어웨이</option>
                     </select>
                   </div>
-                  <div className="flex flex-col gap-3 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
-                    <label className="text-sm font-bold text-white flex items-center justify-between">
-                      출전 여부
-                      <input 
-                        type="checkbox" 
-                        checked={newEventParticipating} 
-                        onChange={(e) => setNewEventParticipating(e.target.checked)}
-                        className="w-4 h-4 accent-[var(--primary-color)]"
-                      />
-                    </label>
+                  <div className="flex flex-col gap-3">
+                    <div className="input-group-select !mb-0">
+                      <label>출전 여부</label>
+                      <div className="flex gap-2 mt-[10px]">
+                        <button 
+                          className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${!newEventParticipating ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                          onClick={() => setNewEventParticipating(false)}
+                        >
+                          결장
+                        </button>
+                        <button 
+                          className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${newEventParticipating ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                          onClick={() => setNewEventParticipating(true)}
+                        >
+                          출전
+                        </button>
+                      </div>
+                    </div>
                     
                     {newEventParticipating && (
-                      <div className="flex gap-2 mt-1">
+                      <div className="flex gap-2 mt-[10px]">
                         <button 
-                          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors border ${newEventParticipationType === '선발' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-transparent text-gray-400 border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                          className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${newEventParticipationType === '선발' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
                           onClick={() => setNewEventParticipationType('선발')}
                         >
                           선발
                         </button>
                         <button 
-                          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors border ${newEventParticipationType === '교체' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-transparent text-gray-400 border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                          className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${newEventParticipationType === '교체' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
                           onClick={() => setNewEventParticipationType('교체')}
                         >
                           교체
@@ -829,14 +839,12 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                       </select>
                     </div>
                   </div>
-                  <div className="input-group" style={{ height: 'auto', alignItems: 'flex-start' }}>
-                    <span className="material-icons-round" style={{ marginTop: '12px' }}>notes</span>
+                  <div className="flex flex-col mb-4">
                     <textarea 
                       placeholder="세부내용" 
                       value={newEventDetails} 
                       onChange={e => setNewEventDetails(e.target.value)}
-                      className="bg-transparent border-none text-white text-[15px] outline-none flex-1 py-3 min-h-[80px] resize-none"
-                      style={{ paddingLeft: '8px' }}
+                      className="w-full bg-[rgba(0,0,0,0.25)] border border-[var(--card-border)] rounded-2xl p-4 text-white text-[14px] outline-none min-h-[100px] resize-none focus:border-[var(--primary-color)] transition-colors"
                     />
                   </div>
                 </>
@@ -890,21 +898,23 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                   </div>
                 </>
               )}
-              <div className="flex flex-col gap-2 mt-2">
+            </div>
+            <div className="p-6 border-t border-[rgba(255,255,255,0.05)] shrink-0">
+              <div className="flex flex-col gap-2">
                 {showDeleteConfirm ? (
                   <>
                     <div className="text-[#FF3B30] text-sm text-center mb-2 font-bold">정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full">
                       <button className="btn-action-outline flex-1 text-white border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setShowDeleteConfirm(false)}>취소</button>
                       <button className="btn-primary flex-1 bg-[#FF3B30] hover:bg-[#FF453A]" onClick={handleDeleteEvent}>정말 삭제하기</button>
                     </div>
                   </>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full mt-[10px]">
                     {editingEventOriginalIndex !== null && (
-                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white" onClick={handleDeleteEvent}>삭제</button>
+                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[40px]" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
                     )}
-                    <button className="btn-primary flex-1" onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
+                    <button className="btn-primary flex-1 h-[40px] flex items-center justify-center" onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
                   </div>
                 )}
               </div>

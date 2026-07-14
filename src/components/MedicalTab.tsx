@@ -49,10 +49,10 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     player.id === 'pitcher';
 
   const defaultPainData: PainData = {
-    'shoulders_right_front': { level: 3, reason: '훈련 중 부딪혀서 부상 재발(과거 수술 부위)', initialDate: '2026-07-01' },
-    'head_center_back': { level: 4, reason: '경기 중 헤딩 상황에서 찢어짐', initialDate: '2026-07-02' },
-    'lower-back_center_back': { level: 2, reason: '스트레칭 하다가 삐끗함', initialDate: '2026-07-03' },
-    'calves_right_back': { level: 5, reason: '부상 내용 미입력', initialDate: '2026-07-04' },
+    'shoulders_right_front': { level: 3, initialLevel: 3, reason: '훈련 중 부딪혀서 부상 재발(과거 수술 부위)', initialDate: '2026-07-01', history: [{date: '2026-07-01', level: 3}] },
+    'head_center_back': { level: 4, initialLevel: 4, reason: '경기 중 헤딩 상황에서 찢어짐', initialDate: '2026-07-02', history: [{date: '2026-07-02', level: 4}] },
+    'lower-back_center_back': { level: 2, initialLevel: 2, reason: '스트레칭 하다가 삐끗함', initialDate: '2026-07-03', history: [{date: '2026-07-03', level: 2}] },
+    'calves_right_back': { level: 5, initialLevel: 5, reason: '부상 내용 미입력', initialDate: '2026-07-04', history: [{date: '2026-07-04', level: 5}] },
   };
 
   const [painData, setPainData] = useState<PainData>(
@@ -63,6 +63,13 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
   const [painLevel, setPainLevel] = useState<number>(3);
   const [painReason, setPainReason] = useState<string>('');
   const [painDiagnosis, setPainDiagnosis] = useState<string>('');
+  
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [treatmentPeriod, setTreatmentPeriod] = useState<string>('');
   const [painDate, setPainDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [initialPainDate, setInitialPainDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -449,13 +456,18 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       newPartId = `${selectedPart}_dup_${Date.now()}`;
     }
 
+    let updatedInitialLevel = currentItem?.initialLevel ?? currentItem?.level ?? painLevel;
+    if (painDate === initialPainDate) {
+      updatedInitialLevel = painLevel;
+    }
+
     nextPainData[newPartId] = { 
       level: painLevel, 
       reason: painReason,
       diagnosis: painDiagnosis,
       treatmentPeriod: treatmentPeriod,
       initialDate: initialPainDate,
-      initialLevel: currentItem?.initialLevel ?? painLevel,
+      initialLevel: updatedInitialLevel,
       history: newHistory,
       isPast: false
     };
@@ -664,7 +676,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     return [
       ...(item.initialDate ? [{
         date: item.initialDate,
-        level: item.initialLevel ?? ((item.history && item.history.length > 0) ? item.history[0].level : item.level)
+        level: item.initialLevel ?? item.level
       }] : []),
       ...(item.history || [])
     ].reduce((acc: any[], current: any) => {
@@ -865,9 +877,9 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
           
           {/* Top: Interactive Body Map */}
           <div className="flex flex-col">
-            <TransformWrapper centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
-              <TransformComponent wrapperClass="w-full">
-                <div className="flex justify-center gap-16 md:gap-24 items-start relative mb-8 w-full min-w-max" style={{ touchAction: 'none' }}>
+            <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
+              <TransformComponent wrapperStyle={{ width: '100%' }} contentStyle={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <div className="flex justify-center gap-16 md:gap-24 items-start relative mb-8 w-full max-w-lg mx-auto" style={{ touchAction: 'none' }}>
                   {/* Front Silhouette */}
                   <div className="flex flex-col items-center">
                     <span className="text-white text-sm font-semibold mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-4 py-1 text-center">앞</span>
@@ -885,39 +897,39 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
               {/* Pain Input Modal */}
               {showPainModal && (
-                <div className="modal active" style={{ zIndex: 1050 }}>
-                  <div className="modal-content overflow-y-auto max-h-[90vh]">
-                    <div className="modal-header">
-                      <h4>{selectedPart ? getPartName(selectedPart) : '부상 입력'}</h4>
-                      <span className="material-icons-round close-btn" onClick={() => setShowPainModal(false)}>close</span>
+                <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+                  <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
+                    <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+                      <h4 className="text-[14px] font-bold text-white flex items-center gap-2">
+                        {selectedPart ? getPartName(selectedPart) : '부상 입력'}
+                      </h4>
+                      <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => setShowPainModal(false)}>close</span>
                     </div>
                     
                     {/* Modal Body */}
-                    <div className="modal-body flex flex-col gap-6">
+                    <div className="p-6 overflow-y-auto flex flex-col gap-6">
                       
                       {/* Dates */}
                       <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="text-sm font-bold text-white mb-3 block">부상 발생일</label>
+                        <div className={`input-group-select !mb-0 ${isEditingModalMode ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <label>부상 발생일</label>
                           <input 
                             type="date" 
                             value={initialPainDate}
                             onChange={(e) => setInitialPainDate(e.target.value)}
                             disabled={isEditingModalMode}
-                            className={`w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] ${isEditingModalMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                            onClick={(e) => { if (!isEditingModalMode && (e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
+                            max="9999-12-31"
                           />
                         </div>
 
                         {selectedPart && isEditingModalMode && painData[selectedPart] && (
-                          <div>
-                            <label className="text-sm font-bold text-white mb-3 block">현재 부상 상태</label>
+                          <div className="input-group-select !mb-0">
+                            <label>현재 부상 상태</label>
                             <input 
                               type="date" 
                               value={painDate}
                               onChange={(e) => setPainDate(e.target.value)}
-                              className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] cursor-pointer"
-                              onClick={(e) => { if ((e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
+                              max="9999-12-31"
                             />
                           </div>
                         )}
@@ -934,13 +946,15 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                               </span>
                             </div>
                           )}
-                          <TransformWrapper centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
-                            <TransformComponent wrapperClass="w-full">
-                              <div className="flex justify-center gap-4 sm:gap-12 w-full min-w-max" style={{ touchAction: 'none' }}>
+                          <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }}>
+                            <TransformComponent wrapperStyle={{ width: '100%' }} contentStyle={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                              <div className="flex justify-center gap-4 sm:gap-12 w-full max-w-lg mx-auto" style={{ touchAction: 'none' }}>
                                 <div className="flex flex-col items-center">
+                                  <span className="text-white text-xs sm:text-sm font-semibold mb-3 sm:mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-3 py-1 sm:px-4 text-center">앞</span>
                                   {renderBodySelector('front', true)}
                                 </div>
                                 <div className="flex flex-col items-center">
+                                  <span className="text-white text-xs sm:text-sm font-semibold mb-3 sm:mb-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-full px-3 py-1 sm:px-4 text-center">뒤</span>
                                   {renderBodySelector('back', true)}
                                 </div>
                               </div>
@@ -1106,7 +1120,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                     </div>
                     
                     {/* Modal Footer */}
-                    <div className="flex gap-2 sm:gap-3 mt-2">
+                    <div className="p-6 border-t border-[rgba(255,255,255,0.05)] flex gap-3 shrink-0">
                       {selectedPart && isEditingModalMode && painData[selectedPart] && (
                         <>
                           <button onClick={permanentlyDeletePainData} className="flex-1 py-3 sm:py-4 border border-red-500/20 bg-red-500/5 rounded-xl text-red-500 hover:bg-red-500/10 text-sm sm:text-base font-bold transition-colors">
@@ -1119,7 +1133,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       )}
                       <button 
                         onClick={savePainData} 
-                        className="flex-1 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-bold transition-all btn-primary"
+                        className="flex-1 py-3 sm:py-4 border border-[var(--primary-color)] bg-[var(--primary-color)] text-[#050608] hover:opacity-90 rounded-xl text-sm sm:text-base font-bold transition-all"
                       >
                         저장
                       </button>
@@ -1290,16 +1304,6 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                                 </span>
                               </div>
                               <div className="flex flex-col items-end gap-2">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowHistoryModal(false);
-                                    handlePartClick(cardId, cardData);
-                                  }}
-                                  className="text-[12px] font-bold text-[var(--primary-color)] bg-[rgba(212,175,55,0.1)] hover:bg-[rgba(212,175,55,0.2)] border border-[rgba(212,175,55,0.2)] px-3 py-1.5 rounded-lg transition-colors"
-                                >
-                                  수정하기
-                                </button>
                                 <div className="flex flex-col items-end gap-1 text-[13px] sm:text-[14px] font-semibold text-gray-400 mt-1 sm:mt-0">
                                   <div className="flex items-center gap-1.5">
                                     <span 
@@ -1342,7 +1346,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                               
                             <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4">
                               <span className="text-[11px] font-bold text-gray-500 block mb-2 uppercase tracking-wider">부상 내용</span>
-                              <p className="text-sm text-gray-300 font-medium leading-relaxed">
+                              <p className="text-[12px] text-gray-300 font-medium leading-relaxed">
                                 {cardData.reason || '입력된 부상 내용이 없습니다.'}
                               </p>
                             </div>
@@ -1712,7 +1716,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
           <div className="card-chart bg-[var(--card-bg)] w-full max-w-2xl rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
-              <h4 className="text-lg font-bold text-white flex items-center gap-2">
+              <h4 className="text-[14px] font-bold text-white flex items-center gap-2">
                 <span className="material-icons-round text-gray-400">history</span>
                 과거 부상 내역
               </h4>
@@ -1899,7 +1903,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
           <div className="card-chart bg-[var(--card-bg)] w-full max-w-2xl rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
-              <h4 className="text-lg font-bold text-white flex items-center gap-2">
+              <h4 className="text-[14px] font-bold text-white flex items-center gap-2">
                 <span className="material-icons-round text-gray-400">history</span>
                 지난 진료 기록
               </h4>
@@ -2055,15 +2059,18 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
         </div>
       )}
       {showTimelineModal && (
-        <div className="modal active" style={{ zIndex: 1050 }}>
-          <div className="modal-content overflow-y-auto max-h-[90vh]">
-            <div className="modal-header">
-              <h4>{editingTimelineItem ? '진료 기록 수정' : '진료 기록 추가'}</h4>
-              <span className="material-icons-round close-btn" onClick={() => setShowTimelineModal(false)}>close</span>
+        <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+              <h4 className="text-[14px] font-bold text-white flex items-center gap-2">
+                <span className="material-icons-round text-gray-400">event_note</span>
+                {editingTimelineItem ? '진료 기록 수정' : '진료 기록 추가'}
+              </h4>
+              <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => setShowTimelineModal(false)}>close</span>
             </div>
             
             {/* Modal Body */}
-            <div className="modal-body flex flex-col gap-6">
+            <div className="p-6 overflow-y-auto flex flex-col gap-6">
               {timelineFormError && (
                 <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold rounded-xl p-3">
                   {timelineFormError}
@@ -2095,24 +2102,14 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
               </div>
 
               {/* Date Label */}
-              <div>
-                <label className="text-sm font-bold text-white mb-3 block">진료 일자</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formatKoreanDate(timelineFormDateLabel)}
-                    readOnly
-                    placeholder="날짜를 선택해주세요"
-                    className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] pointer-events-none relative z-0"
-                  />
-                  <input
-                    type="date"
-                    value={timelineFormDateLabel}
-                    onChange={(e) => setTimelineFormDateLabel(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    onClick={(e) => { if ((e.target as HTMLInputElement).showPicker) { try { (e.target as HTMLInputElement).showPicker(); } catch (err) {} } }}
-                  />
-                </div>
+              <div className="input-group-select">
+                <label>진료 일자</label>
+                <input
+                  type="date"
+                  value={timelineFormDateLabel}
+                  onChange={(e) => setTimelineFormDateLabel(e.target.value)}
+                  max="9999-12-31"
+                />
               </div>
 
               {/* Time */}
@@ -2179,7 +2176,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
             </div>
             
             {/* Modal Footer */}
-            <div className="flex gap-3 mt-2">
+            <div className="p-6 border-t border-[rgba(255,255,255,0.05)] flex gap-3 shrink-0">
               {editingTimelineItem ? (
                 <>
                   <button 
@@ -2190,7 +2187,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                   </button>
                   <button 
                     onClick={handleSaveTimelineItem}
-                    className="flex-[2] btn-primary py-4 rounded-xl text-base font-bold transition-all"
+                    className="flex-1 btn-primary py-4 rounded-xl text-base font-bold transition-all"
                   >
                     저장
                   </button>
@@ -2210,20 +2207,20 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
 
       {deleteConfirmModal.isOpen && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#2a2a2a] rounded-2xl p-6 max-w-sm w-full border border-[rgba(255,255,255,0.1)] shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">항목 삭제</h3>
-            <p className="text-gray-400 text-sm mb-6">정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+        <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 animate-scale-up">
+            <h3 className="text-lg font-bold text-white mb-2 text-center">항목 삭제</h3>
+            <p className="text-gray-400 text-sm text-center mb-6">정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setDeleteConfirmModal({ isOpen: false, id: null, type: null })} 
-                className="flex-1 py-3 bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-white rounded-xl text-sm font-bold transition-colors border border-[rgba(255,255,255,0.1)]"
+                className="flex-1 py-3 rounded-xl border border-[rgba(255,255,255,0.1)] text-gray-400 font-bold hover:bg-[rgba(255,255,255,0.05)] transition-colors"
               >
                 취소
               </button>
               <button 
                 onClick={confirmDelete} 
-                className="flex-1 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-sm font-bold transition-colors border border-red-500/20"
+                className="flex-1 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-colors border border-red-500/20"
               >
                 삭제하기
               </button>

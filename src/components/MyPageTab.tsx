@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
 import { formatKoreanCurrency } from '../utils';
 
 export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpdatePlayerProfile, onDeletePlayer, onLogout }: { currentUser: any, playersCount: number, allPlayers?: any, onUpdatePlayerProfile?: (id: string, data: any) => void, onDeletePlayer?: (id: string) => void, onLogout: () => void }) {
@@ -15,6 +16,10 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
   const [editBirthdate, setEditBirthdate] = useState('');
   const [editSalary, setEditSalary] = useState('');
   const [editProfileImg, setEditProfileImg] = useState('');
+  const [cropImgUrl, setCropImgUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   // Group players by team if isAgent and allPlayers exists
   const teamGroups: Record<string, any[]> = {};
@@ -44,37 +49,58 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
     setEditProfileImg(p.profileImg || "");
   };
 
+  const getCroppedImg = async (imageSrc: string, pixelCrop: any) => {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (error) => reject(error);
+      img.src = imageSrc;
+    });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+
+    return canvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const handleCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropSave = async () => {
+    if (cropImgUrl && croppedAreaPixels) {
+      const croppedImage = await getCroppedImg(cropImgUrl, croppedAreaPixels);
+      if (croppedImage) {
+        setEditProfileImg(croppedImage);
+      }
+    }
+    setCropImgUrl(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+  };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 400;
-          const MAX_HEIGHT = 400;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          setEditProfileImg(canvas.toDataURL('image/jpeg', 0.8));
-        };
-        img.src = reader.result as string;
+        setCropImgUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -190,85 +216,91 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
           )}
           <div className="info-item">
             <span>가입일</span>
-            <strong>{new Date().toISOString().split('T')[0]}</strong>
+            <strong>{activeUser.createdAt ? activeUser.createdAt.split('T')[0] : '-'}</strong>
           </div>
         </div>
 
-        {!isAgent && (
-          <button className="btn-primary w-full mb-3" onClick={() => handlePlayerClick({ ...activeUser, id: activeUser.id || activeUser.userId }, true)}>
-            프로필 수정
-          </button>
-        )}
-
-        {isAgent && Object.keys(teamGroups).length > 0 && (
-          <div className="mb-8">
-            <h4 className="text-[var(--text-muted)] font-bold text-sm mb-5 tracking-wide uppercase">구단별 소속 선수</h4>
-            <div className="flex flex-col">
-              {Object.keys(teamGroups).sort().map(teamName => (
-                <div key={teamName} className="card-chart flex flex-col">
-                  <div className="text-center pb-3 mb-2 border-b border-[var(--card-border)]">
-                    <span className="font-bold text-[var(--primary-color)]">{teamName}</span>
-                    <span className="text-[var(--text-muted)] text-sm ml-2">({teamGroups[teamName].length}명)</span>
-                  </div>
-                  <div className="flex flex-col divide-y divide-[var(--card-border)]">
-                    {teamGroups[teamName].map((p: any) => (
-                      <div 
-                        key={p.id}
-                        className="py-3 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => handlePlayerClick(p)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {p.profileImg ? (
-                            <img src={p.profileImg} alt={p.name} className="w-10 h-10 rounded-full object-cover border border-[rgba(255,255,255,0.1)]" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[var(--text-muted)]">
-                              <span className="material-icons-round text-xl">person</span>
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-bold text-white mb-0.5 flex items-center gap-2">
-                              {p.name}
-                              {p.playerNumber && <span className="text-xs text-[var(--text-muted)] font-mono">No.{p.playerNumber}</span>}
-                            </div>
-                            <div className="text-[13px] text-gray-400">{p.position || p.playerPosition || '-'}</div>
-                          </div>
-                        </div>
-                        <div 
-                          className="p-1 -mr-1 rounded-full hover:bg-[rgba(255,255,255,0.1)] transition-colors flex items-center justify-center cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlayerClick(p, true);
-                          }}
-                        >
-                          <span className="material-icons-round text-gray-500 text-[20px]">edit</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+        {!isAgent ? (
+          <div className="flex gap-2">
+            <button className="flex-1 py-3.5 px-4 rounded-xl font-bold text-[14px] bg-[#2A2D35] text-white hover:bg-[#343842] transition-colors" onClick={() => handlePlayerClick({ ...activeUser, id: activeUser.id || activeUser.userId }, true)}>
+              프로필 수정
+            </button>
+            <button className="flex-1 py-3.5 px-4 rounded-xl font-bold text-[14px] bg-[var(--primary-color)] text-black hover:opacity-90 transition-opacity" onClick={onLogout}>
+              로그아웃
+            </button>
           </div>
+        ) : (
+          <>
+            {Object.keys(teamGroups).length > 0 && (
+              <div className="mb-8">
+                <h4 className="text-[var(--text-muted)] font-bold text-sm mb-5 tracking-wide uppercase">구단별 소속 선수</h4>
+                <div className="flex flex-col">
+                  {Object.keys(teamGroups).sort().map(teamName => (
+                    <div key={teamName} className="card-chart flex flex-col">
+                      <div className="text-center pb-3 mb-2 border-b border-[var(--card-border)]">
+                        <span className="font-bold text-[var(--primary-color)]">{teamName}</span>
+                        <span className="text-[var(--text-muted)] text-sm ml-2">({teamGroups[teamName].length}명)</span>
+                      </div>
+                      <div className="flex flex-col divide-y divide-[var(--card-border)]">
+                        {teamGroups[teamName].map((p: any) => (
+                          <div 
+                            key={p.id}
+                            className="py-3 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => handlePlayerClick(p)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {p.profileImg ? (
+                                <img src={p.profileImg} alt={p.name} className="w-10 h-10 rounded-full object-cover border border-[rgba(255,255,255,0.1)]" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[var(--text-muted)]">
+                                  <span className="material-icons-round text-xl">person</span>
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-bold text-white mb-0.5 flex items-center gap-2">
+                                  {p.name}
+                                  {p.playerNumber && <span className="text-xs text-[var(--text-muted)] font-mono">No.{p.playerNumber}</span>}
+                                </div>
+                                <div className="text-[13px] text-gray-400">{p.position || p.playerPosition || '-'}</div>
+                              </div>
+                            </div>
+                            <div 
+                              className="p-1 -mr-1 rounded-full hover:bg-[rgba(255,255,255,0.1)] transition-colors flex items-center justify-center cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayerClick(p, true);
+                              }}
+                            >
+                              <span className="material-icons-round text-gray-500 text-[20px]">edit</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button className="w-full py-3.5 px-4 rounded-xl font-bold bg-[var(--primary-color)] text-black hover:opacity-90 transition-opacity" onClick={onLogout}>로그아웃</button>
+          </>
         )}
-
-        <button className="btn-danger w-full" onClick={onLogout}>로그아웃</button>
       </div>
 
       {editingPlayerId && selectedPlayer && (
-        <div className="modal active z-50">
-          <div className="modal-content-wide max-w-sm overflow-hidden">
+        <div className="fixed inset-0 z-[1100] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[90vh]">
             {!isEditMode ? (
               <>
-                <div className="modal-header shrink-0">
-                  <h4>선수 프로필</h4>
+                <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+                  <h4 className="text-[14px] font-bold text-white flex items-center gap-2">선수 프로필</h4>
                   <div className="flex gap-2 items-center">
                     <button className="text-[var(--text-muted)] hover:text-white transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setIsEditMode(true)} title="수정">
                       <span className="material-icons-round" style={{ fontSize: '20px' }}>edit</span>
                     </button>
-                    <span className="material-icons-round close-btn" onClick={() => { setEditingPlayerId(null); setSelectedPlayer(null); }}>close</span>
+                    <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => { setEditingPlayerId(null); setSelectedPlayer(null); }}>close</span>
                   </div>
                 </div>
-                <div className="modal-body flex-1 min-h-0 flex flex-col items-center py-6 overflow-y-auto">
+                <div className="p-6 overflow-y-auto flex flex-col items-center">
                   {selectedPlayer.profileImg ? (
                     <img src={selectedPlayer.profileImg} alt={selectedPlayer.name} className="w-24 h-24 rounded-full object-cover border-4 border-[rgba(255,255,255,0.1)] shadow-lg mb-4 shrink-0" />
                   ) : (
@@ -304,16 +336,16 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
               </>
             ) : (
               <>
-                <div className="modal-header shrink-0">
+                <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-2">
                     <button className="text-[var(--text-muted)] hover:text-white transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setIsEditMode(false)} title="뒤로가기">
                       <span className="material-icons-round" style={{ fontSize: '20px' }}>arrow_back</span>
                     </button>
-                    <h4>선수 프로필 수정</h4>
+                    <h4 className="text-[14px] font-bold text-white flex items-center gap-2">선수 프로필 수정</h4>
                   </div>
-                  <span className="material-icons-round close-btn" onClick={() => { setEditingPlayerId(null); setSelectedPlayer(null); setIsEditMode(false); }}>close</span>
+                  <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => { setEditingPlayerId(null); setSelectedPlayer(null); setIsEditMode(false); }}>close</span>
                 </div>
-                <div className="modal-body flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto pb-6 px-1">
+                <div className="p-6 overflow-y-auto flex flex-col gap-3">
                   <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
                     <label className="relative cursor-pointer group">
                       {editProfileImg ? (
@@ -387,8 +419,8 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                       <option value="좌투양타">좌투양타</option>
                     </select>
                   </div>
-                  <div className="input-group !mb-0">
-                    <span className="material-icons-round">calendar_today</span>
+                  <div className="input-group-select !mb-0">
+                    <label>생년월일</label>
                     <input type="date" value={editBirthdate} onChange={e => setEditBirthdate(e.target.value)} max="9999-12-31" required />
                   </div>
                   <div className="input-group !mb-0">
@@ -396,27 +428,96 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     <input type="number" placeholder="연봉 (단위: 원)" value={editSalary} onChange={e => setEditSalary(e.target.value)} />
                   </div>
                   
-                  <div className="flex flex-col gap-2 mt-2 shrink-0">
-                    {showDeleteConfirm ? (
-                      <>
-                        <div className="text-[#FF3B30] text-sm text-center mb-2 font-bold">정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</div>
-                        <div className="flex gap-2">
-                          <button className="btn-action-outline flex-1 text-white border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setShowDeleteConfirm(false)}>취소</button>
-                          <button className="btn-primary flex-1 bg-[#FF3B30] hover:bg-[#FF453A]" onClick={handleDeleteProfile}>정말 삭제하기</button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex gap-2">
-                        {isAgent && (
-                          <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white" onClick={handleDeleteProfile}>삭제</button>
-                        )}
-                        <button className="btn-primary flex-1" onClick={handleSaveProfile}>저장하기</button>
-                      </div>
+                </div>
+                <div className="p-6 border-t border-[rgba(255,255,255,0.05)] shrink-0">
+                  <div className="flex gap-2 w-full">
+                    {isAgent && (
+                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
                     )}
+                    <button className="btn-primary flex-1" onClick={handleSaveProfile}>저장하기</button>
                   </div>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+
+      {cropImgUrl && (
+        <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/80 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 animate-scale-up">
+            <h3 className="text-lg font-bold text-white mb-4 text-center">사진 자르기</h3>
+            
+            <div className="relative w-full h-64 mb-4 bg-black/50 rounded-xl overflow-hidden">
+              <Cropper
+                image={cropImgUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={handleCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            
+            <div className="flex items-center gap-3 mb-6 px-2">
+              <span className="material-icons-round text-gray-400 text-sm">zoom_out</span>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-[var(--primary-color)]"
+              />
+              <span className="material-icons-round text-gray-400 text-sm">zoom_in</span>
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                className="flex-1 py-3 rounded-xl border border-[rgba(255,255,255,0.1)] text-gray-400 font-bold hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                onClick={() => {
+                  setCropImgUrl(null);
+                  setCrop({ x: 0, y: 0 });
+                  setZoom(1);
+                }}
+              >
+                취소
+              </button>
+              <button 
+                className="flex-1 py-3 rounded-xl bg-[var(--primary-color)] text-black font-bold hover:opacity-90 transition-opacity"
+                onClick={handleCropSave}
+              >
+                적용하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[1300] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 animate-scale-up">
+            <h3 className="text-lg font-bold text-white mb-2 text-center">프로필 삭제</h3>
+            <p className="text-[#FF3B30] text-sm text-center mb-6">정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+            <div className="flex gap-3">
+              <button 
+                className="flex-1 py-3 rounded-xl border border-[rgba(255,255,255,0.1)] text-gray-400 font-bold hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                취소
+              </button>
+              <button 
+                className="flex-1 py-3 rounded-xl bg-[#FF3B30] text-white font-bold hover:bg-[#FF453A] transition-colors"
+                onClick={handleDeleteProfile}
+              >
+                삭제
+              </button>
+            </div>
           </div>
         </div>
       )}
