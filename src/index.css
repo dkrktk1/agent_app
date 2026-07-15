@@ -671,10 +671,8 @@ body {
 }
 
 .summary-info h2 {
-  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 600;
-  font-style: italic;
 }
 
 .summary-info p {
