@@ -8,8 +8,7 @@ const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val:
   const ampm = hNum >= 12 ? 'PM' : 'AM';
   const hour12 = hNum % 12 || 12;
   
-  const handleAmPm = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newAmPm = e.target.value;
+  const handleAmPmVal = (newAmPm: 'AM' | 'PM') => {
     const newH24 = newAmPm === 'PM' ? (hour12 === 12 ? 12 : hour12 + 12) : (hour12 === 12 ? 0 : hour12);
     onChange(`${newH24.toString().padStart(2, '0')}:${m}`);
   };
@@ -26,23 +25,35 @@ const TimeSelect = ({ value, onChange, label }: { value: string, onChange: (val:
 
   return (
     <div className="flex flex-col w-full">
-      <label className="text-sm font-medium text-[var(--text-muted)] block mb-2">{label}</label>
+      <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">{label}</label>
       <div className="flex gap-2">
-        <select value={ampm} onChange={handleAmPm} className="flex-1 p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm appearance-none outline-none focus:border-[#3b82f6]">
-          <option value="AM" className="bg-[#1f2937]">오전</option>
-          <option value="PM" className="bg-[#1f2937]">오후</option>
-        </select>
-        <select value={hour12} onChange={handleHour} className="flex-1 p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm appearance-none outline-none focus:border-[#3b82f6]">
-          {[...Array(12)].map((_, i) => (
-            <option key={i+1} value={i+1} className="bg-[#1f2937]">{i+1}시</option>
-          ))}
-        </select>
-        <select value={m} onChange={handleMinute} className="flex-1 p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm appearance-none outline-none focus:border-[#3b82f6]">
-          {[...Array(12)].map((_, i) => {
-            const minStr = (i * 5).toString().padStart(2, '0');
-            return <option key={minStr} value={minStr} className="bg-[#1f2937]">{minStr}분</option>;
-          })}
-        </select>
+        <button 
+          className={`px-4 h-[30px] flex items-center justify-center text-[13px] font-bold rounded-xl transition-colors border ${ampm === 'AM' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+          onClick={() => handleAmPmVal('AM')}
+        >
+          오전
+        </button>
+        <button 
+          className={`px-4 h-[30px] flex items-center justify-center text-[13px] font-bold rounded-xl transition-colors border ${ampm === 'PM' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+          onClick={() => handleAmPmVal('PM')}
+        >
+          오후
+        </button>
+        <div className="flex-1" style={{ marginBottom: 0 }}>
+          <select value={hour12.toString()} onChange={handleHour} className="w-full h-[30px] bg-[#1e293b] border border-[rgba(255,255,255,0.1)] focus:border-[#3b82f6] rounded-xl px-2 text-white text-[13px] outline-none appearance-none text-center">
+            {[...Array(12)].map((_, i) => (
+              <option key={i+1} value={(i+1).toString()} className="bg-[#1f2937] text-white">{(i+1).toString().padStart(2, '0')}시</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1" style={{ marginBottom: 0 }}>
+          <select value={m} onChange={handleMinute} className="w-full h-[30px] bg-[#1e293b] border border-[rgba(255,255,255,0.1)] focus:border-[#3b82f6] rounded-xl px-2 text-white text-[13px] outline-none appearance-none text-center">
+            {[...Array(12)].map((_, i) => {
+              const minStr = (i * 5).toString().padStart(2, '0');
+              return <option key={minStr} value={minStr} className="bg-[#1f2937] text-white">{minStr}분</option>;
+            })}
+          </select>
+        </div>
       </div>
     </div>
   );
@@ -71,7 +82,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
   const [newEventParticipating, setNewEventParticipating] = useState(false);
   const [newEventParticipationType, setNewEventParticipationType] = useState<'선발' | '교체'>('선발');
   const [logRpe, setLogRpe] = useState<number | ''>(7);
-  const [logDuration, setLogDuration] = useState<number | ''>(120);
+  const [logDuration, setLogDuration] = useState<number | ''>('');
   const [newEventGrip, setNewEventGrip] = useState<number | ''>(50);
   const [newEventGripLeft, setNewEventGripLeft] = useState<number | ''>(50);
   const [newEventGripRight, setNewEventGripRight] = useState<number | ''>(50);
@@ -139,7 +150,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        const overallGrip = (gl + gr) / 2;
 
        const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
-       const logDurationNum = Number(logDuration) || 120;
+       const logDurationNum = Number(logDuration) || 0;
        const curAcute = (Number(logRpe) || 0) * logDurationNum;
 
        let sleepDuration = 0;
@@ -150,78 +161,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
          if (durationMins < 0) durationMins += 24 * 60;
          sleepDuration = Number((durationMins / 60).toFixed(1));
        }
-
-       const prevChronic = p?.acwrChartData?.chronic?.[3] ?? 1;
-       let newAcwr = "0.0";
-       if (prevChronic > 0) {
-         newAcwr = (curAcute / prevChronic).toFixed(2);
-       }
-
-       if (!p.acwrChartData) p.acwrChartData = { acute: [0,0,0,0], chronic: [1,1,1,1], acwr: [0,0,0,0] };
-       if (!p.gripChartData) p.gripChartData = { labels: [], values: [], leftValues: [], rightValues: [] };
-       if (!p.gripChartData.labels) p.gripChartData.labels = [];
-       if (!p.gripChartData.values) p.gripChartData.values = [];
-       if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...p.gripChartData.values];
-       if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...p.gripChartData.values];
-
-       p.acwrChartData.acute[3] = curAcute;
-       p.acwrChartData.acwr[3] = parseFloat(newAcwr);
-
-       if (!p.metrics) p.metrics = {};
-       p.metrics.rpe = Number(logRpe) || 0; 
-       p.metrics.gripRaw = overallGrip;
-       p.metrics.grip = parseFloat(dev);
-       p.metrics.acwr = parseFloat(newAcwr);
-       p.metrics.sleep = sleepDuration;
-       if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-       else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
-       else p.status = "normal";
-
-       // update line charts
-       if (!p.acwrGraphData) p.acwrGraphData = [];
-       if (!p.sleepChartData) p.sleepChartData = [];
-
-       const existingAcwrIndex = p.acwrGraphData.findIndex((d: any) => d.date === formattedDate);
-       if (existingAcwrIndex !== -1) {
-         p.acwrGraphData[existingAcwrIndex].acwr = parseFloat(newAcwr);
-       } else {
-         if (p.acwrGraphData.length >= 7) p.acwrGraphData.shift();
-         p.acwrGraphData.push({ date: formattedDate, acwr: parseFloat(newAcwr) });
-       }
-
-       const existingSleepIndex = p.sleepChartData.findIndex((d: any) => d.date === formattedDate);
-       if (existingSleepIndex !== -1) {
-         p.sleepChartData[existingSleepIndex].sleepDuration = sleepDuration;
-       } else {
-         if (p.sleepChartData.length >= 7) p.sleepChartData.shift();
-         p.sleepChartData.push({ date: formattedDate, sleepDuration: sleepDuration });
-       }
-       p.acwrGraphData.sort((a: any, b: any) => a.date.localeCompare(b.date));
-       p.sleepChartData.sort((a: any, b: any) => a.date.localeCompare(b.date));
-
-       const lastLabel = p.gripChartData.labels.length > 0 ? p.gripChartData.labels[p.gripChartData.labels.length - 1] : "";
-       if (lastLabel === "오늘" || lastLabel === formattedDate) {
-         p.gripChartData.labels[p.gripChartData.labels.length - 1] = "오늘"; // Assuming today's entry
-         p.gripChartData.values[p.gripChartData.values.length - 1] = overallGrip;
-         p.gripChartData.leftValues[p.gripChartData.leftValues.length - 1] = gl;
-         p.gripChartData.rightValues[p.gripChartData.rightValues.length - 1] = gr;
-       } else {
-         if (p.gripChartData.labels.length > 0 && p.gripChartData.labels[p.gripChartData.labels.length - 1] === "오늘") {
-            p.gripChartData.labels[p.gripChartData.labels.length - 1] = "어제";
-         }
-         if (p.gripChartData.labels.length >= 7) {
-           p.gripChartData.labels.shift();
-           p.gripChartData.values.shift();
-           p.gripChartData.leftValues.shift();
-           p.gripChartData.rightValues.shift();
-         }
-         p.gripChartData.labels.push(formattedDate);
-         p.gripChartData.values.push(overallGrip);
-         p.gripChartData.leftValues.push(gl);
-         p.gripChartData.rightValues.push(gr);
-       }
        
-       acwr = parseFloat(newAcwr);
        gripLeft = gl;
        gripRight = gr;
        grip = overallGrip;
@@ -240,6 +180,10 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     }
 
     const newEvent: any = { date: formattedDate, title, place, time, details, acwr, grip, gripLeft, gripRight };
+    if (newEventType === "care") {
+      newEvent.rpe = Number(logRpe) || 0;
+      newEvent.duration = Number(logDuration) || 0;
+    }
     if (sleep !== undefined) {
       newEvent.sleep = sleep;
       if (newEventType === 'care') {
@@ -278,10 +222,14 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
       setShowDeleteConfirm(true);
       return;
     }
-    let updatedSchedules = [...(player.schedules || [])];
+    let p = JSON.parse(JSON.stringify(player));
+    let updatedSchedules = [...(p.schedules || [])];
     updatedSchedules.splice(editingEventOriginalIndex, 1);
+    p.schedules = updatedSchedules;
+    p = rebuildChartsFromSchedules(p);
+    
     if (onUpdatePlayer) {
-      onUpdatePlayer({ ...player, schedules: updatedSchedules });
+      onUpdatePlayer(p);
     }
     closeModal();
   };
@@ -293,7 +241,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventTitle('');
     setNewEventPlace('');
     setNewEventTime('');
-    setNewEventTeam('KIA 타이거즈');
+    setNewEventTeam('');
     setNewEventLocation('홈');
     setNewEventDetails('');
     setLogRpe('');
@@ -320,7 +268,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventTitle('');
     setNewEventPlace('');
     setNewEventTime('');
-    setNewEventTeam('KIA 타이거즈');
+    setNewEventTeam('');
     setNewEventLocation('홈');
     setNewEventDetails('');
     setLogRpe('');
@@ -388,8 +336,8 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
         setNewEventDetails(event.details || '');
     } else if (isCare) {
         setNewEventType('care');
-        setLogRpe(7); // LogRpe not saved in schedule, defaulting to 7
-        setLogDuration(120); // Not saved in schedule, defaulting to 120
+        setLogRpe(event.rpe || 7);
+        setLogDuration(event.duration || '');
         setNewEventGrip(event.grip || 50);
         setNewEventGripLeft(event.gripLeft || 50);
         setNewEventGripRight(event.gripRight || 50);
@@ -480,7 +428,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     const dateStr = `${month}/${d}`;
     const fullDateStr = `${today.getFullYear()}-${month}-${d}`;
 
-    const normalSchedules = player?.schedules?.filter((s: any) => s.date === dateStr) || [];
+    const normalSchedules = player?.schedules?.map((s: any, idx: number) => ({ ...s, originalIndex: idx })).filter((s: any) => s.date === dateStr) || [];
     const medicalSchedules: any[] = [];
     if (player && player.treatmentTimeline) {
       player.treatmentTimeline
@@ -561,7 +509,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                     </div>
                     {isCare && (s.acwr !== undefined || s.grip !== undefined || s.gripLeft !== undefined || s.gripRight !== undefined || s.sleep !== undefined) && (
                       <div className="text-gray-400 text-sm mt-1.5 font-medium flex gap-2 flex-wrap">
-                        {s.acwr !== undefined && <span>ACWR: {s.acwr}</span>}
+                        {s.acwr !== undefined && <span>ACWR: {Number(s.acwr).toFixed(2)}</span>}
                         {s.gripLeft !== undefined && <span>악력(좌): {s.gripLeft}kg</span>}
                         {s.gripRight !== undefined && <span>악력(우): {s.gripRight}kg</span>}
                         {s.grip !== undefined && s.gripLeft === undefined && <span>악력: {s.grip}kg</span>}
@@ -593,7 +541,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               setNewEventAmpm('오전');
               setNewEventHour('12');
               setNewEventMinute('00');
-              setNewEventTeam('KIA 타이거즈');
+              setNewEventTeam('');
               setNewEventLocation('홈');
               setNewEventParticipating(false);
               setNewEventParticipationType('선발');
@@ -724,24 +672,25 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               </h4>
               <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={closeModal}>close</span>
             </div>
-            <div className="p-6 overflow-y-auto flex flex-col gap-4">
-              <div className="input-group-select">
-                <label>일정 분류</label>
-                <select value={newEventType} onChange={e => setNewEventType(e.target.value as any)}>
+            <div className="p-6 overflow-y-auto flex flex-col gap-[16px]">
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">일정 분류</label>
+                <select value={newEventType} onChange={e => setNewEventType(e.target.value as any)} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none">
                   <option value="match">경기 일정</option>
                   <option value="biz">비즈니스 일정</option>
                   <option value="care">컨디셔닝 일정</option>
                 </select>
               </div>
-              <div className="input-group-select">
-                <label>일정 날짜</label>
-                <input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} max="9999-12-31" required />
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">일정 날짜</label>
+                <input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} max="9999-12-31" required  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none" />
               </div>
               {newEventType === 'match' && (
                 <>
-                  <div className="input-group-select">
-                    <label>상대 구단</label>
-                    <select value={newEventTeam} onChange={e => setNewEventTeam(e.target.value)}>
+                  <div>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">상대 구단</label>
+                    <select value={newEventTeam} onChange={e => setNewEventTeam(e.target.value)} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none">
+                      <option value="" disabled>구단을 선택 해 주세요</option>
                       <option value="KIA 타이거즈">KIA 타이거즈</option>
                       <option value="삼성 라이온즈">삼성 라이온즈</option>
                       <option value="LG 트윈스">LG 트윈스</option>
@@ -754,16 +703,26 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                       <option value="키움 히어로즈">키움 히어로즈</option>
                     </select>
                   </div>
-                  <div className="input-group-select">
-                    <label>장소 (홈/어웨이)</label>
-                    <select value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)}>
-                      <option value="홈">홈</option>
-                      <option value="어웨이">어웨이</option>
-                    </select>
+                  <div>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">장소 (홈/어웨이)</label>
+                    <div className="flex gap-2">
+                      <button 
+                        className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${newEventLocation === '홈' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                        onClick={() => setNewEventLocation('홈')}
+                      >
+                        홈
+                      </button>
+                      <button 
+                        className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${newEventLocation === '어웨이' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
+                        onClick={() => setNewEventLocation('어웨이')}
+                      >
+                        어웨이
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <div className="input-group-select !mb-0">
-                      <label>출전 여부</label>
+                    <div>
+                      <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">출전 여부</label>
                       <div className="flex gap-2 mt-[10px]">
                         <button 
                           className={`flex-1 h-[30px] flex items-center justify-center text-sm font-bold rounded-xl transition-colors border ${!newEventParticipating ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
@@ -801,45 +760,51 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               )}
               {newEventType === 'biz' && (
                 <>
-                  <div className="input-group">
-                    <span className="material-icons-round">title</span>
-                    <input type="text" placeholder="일정 제목" value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} required />
+                  <div>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">일정</label>
+                    <div className="relative">
+                      <input type="text" placeholder="일정 제목" value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} required  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none" />
+                    </div>
                   </div>
-                  <div className="input-group">
-                    <span className="material-icons-round">place</span>
-                    <input type="text" placeholder="장소" value={newEventPlace} onChange={e => setNewEventPlace(e.target.value)} />
+                  <div>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">장소</label>
+                    <div className="relative">
+                      <input type="text" placeholder="장소" value={newEventPlace} onChange={e => setNewEventPlace(e.target.value)}  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none" />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="flex bg-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden p-1">
+                  <div>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">시간</label>
+                    <div className="flex gap-2">
                       <button 
-                        className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${newEventAmpm === '오전' ? 'bg-[var(--primary-color)] text-[#050608]' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 h-[30px] flex items-center justify-center text-[13px] font-bold rounded-xl transition-colors border ${newEventAmpm === '오전' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
                         onClick={() => setNewEventAmpm('오전')}
                       >
                         오전
                       </button>
                       <button 
-                        className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${newEventAmpm === '오후' ? 'bg-[var(--primary-color)] text-[#050608]' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 h-[30px] flex items-center justify-center text-[13px] font-bold rounded-xl transition-colors border ${newEventAmpm === '오후' ? 'bg-[var(--primary-color)] text-[#050608] border-[var(--primary-color)]' : 'bg-[rgba(0,0,0,0.25)] text-gray-400 border-[var(--card-border)] hover:border-[rgba(255,255,255,0.2)]'}`}
                         onClick={() => setNewEventAmpm('오후')}
                       >
                         오후
                       </button>
-                    </div>
-                    <div className="input-group-select flex-1" style={{ marginBottom: 0 }}>
-                      <select value={newEventHour} onChange={e => setNewEventHour(e.target.value)}>
-                        {Array.from({length: 12}, (_, i) => i + 1).map(h => (
-                          <option key={h} value={h}>{h}시</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="input-group-select flex-1" style={{ marginBottom: 0 }}>
-                      <select value={newEventMinute} onChange={e => setNewEventMinute(e.target.value)}>
-                        {['00', '10', '20', '30', '40', '50'].map(m => (
-                          <option key={m} value={m}>{m}분</option>
-                        ))}
-                      </select>
+                      <div className="input-group-select flex-1" style={{ marginBottom: 0 }}>
+                        <select value={newEventHour} onChange={e => setNewEventHour(e.target.value)} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none">
+                          {Array.from({length: 12}, (_, i) => i + 1).map(h => (
+                            <option key={h} value={h}>{h}시</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="input-group-select flex-1" style={{ marginBottom: 0 }}>
+                        <select value={newEventMinute} onChange={e => setNewEventMinute(e.target.value)} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none">
+                          {['00', '10', '20', '30', '40', '50'].map(m => (
+                            <option key={m} value={m}>{m}분</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col mb-4">
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">세부 내용</label>
                     <textarea 
                       placeholder="세부내용" 
                       value={newEventDetails} 
@@ -852,7 +817,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               {newEventType === 'care' && (
                 <>
                   <div>
-                    <label className="text-sm font-bold text-white mb-3 block">인지된 훈련 강도(힘듦)</label>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">인지된 훈련 강도(힘듦)</label>
                     <div className="text-center mb-4 text-xs font-bold transition-colors duration-150" style={{ color: !logRpe ? '#6b7280' : (logRpe <= 2 ? '#3b82f6' : logRpe <= 4 ? '#10b981' : logRpe <= 6 ? '#eab308' : logRpe <= 8 ? '#f97316' : '#ef4444') }}>
                       {logRpe ? `${logRpe} - ${rpeLabels[logRpe as number]}` : '선택해주세요'}
                     </div>
@@ -874,47 +839,46 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                   </div>
 
                   <div className="mb-0">
-                    <label className="text-sm font-bold text-white mb-3 block">훈련 시간 (분)</label>
-                    <input type="number" value={logDuration} onChange={e => setLogDuration(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">훈련 시간 (분)</label>
+                    <input type="number" value={logDuration} onChange={e => setLogDuration(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none transition-colors" />
                   </div>
                   
                   <div className="mb-0 flex gap-3">
                     <div className="flex-1">
-                      <label className="text-sm font-bold text-white mb-3 block">왼손 악력 (kg)</label>
-                      <input type="number" step="0.1" value={newEventGripLeft} onChange={e => setNewEventGripLeft(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                      <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">왼손 악력 (kg)</label>
+                      <input type="number" step="0.1" value={newEventGripLeft} onChange={e => setNewEventGripLeft(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none transition-colors" />
                     </div>
                     <div className="flex-1">
-                      <label className="text-sm font-bold text-white mb-3 block">오른손 악력 (kg)</label>
-                      <input type="number" step="0.1" value={newEventGripRight} onChange={e => setNewEventGripRight(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-white text-sm outline-none focus:border-[#3b82f6]" />
+                      <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">오른손 악력 (kg)</label>
+                      <input type="number" step="0.1" value={newEventGripRight} onChange={e => setNewEventGripRight(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none transition-colors" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-sm font-bold text-white mb-3 block">수면 시간</label>
-                    <div className="flex flex-col gap-4 pl-2 border-l-2 border-[rgba(255,255,255,0.1)] ml-2 mt-2">
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">수면 시간</label>
+                    <div className="flex flex-col gap-[12px] mt-[6px]">
                       <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
                       <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
                     </div>
                   </div>
                 </>
               )}
-            </div>
-            <div className="p-6 border-t border-[rgba(255,255,255,0.05)] shrink-0">
-              <div className="flex flex-col gap-2">
+              
+              <div className="flex flex-col gap-2 mt-[-4px]">
                 {showDeleteConfirm ? (
                   <>
                     <div className="text-[#FF3B30] text-sm text-center mb-2 font-bold">정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</div>
-                    <div className="flex gap-2 w-full">
+                    <div className="flex gap-2 w-full mt-4">
                       <button className="btn-action-outline flex-1 text-white border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setShowDeleteConfirm(false)}>취소</button>
                       <button className="btn-primary flex-1 bg-[#FF3B30] hover:bg-[#FF453A]" onClick={handleDeleteEvent}>정말 삭제하기</button>
                     </div>
                   </>
                 ) : (
-                  <div className="flex gap-2 w-full mt-[10px]">
+                  <div className="flex gap-2 w-full">
                     {editingEventOriginalIndex !== null && (
-                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[40px]" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
+                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={() => setShowDeleteConfirm(true)}>삭제</button>
                     )}
-                    <button className="btn-primary flex-1 h-[40px] flex items-center justify-center" onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
+                    <button className="btn-primary flex-1 h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
                   </div>
                 )}
               </div>

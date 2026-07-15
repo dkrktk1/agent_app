@@ -1846,3 +1846,120 @@ textarea {
 button {
   cursor: pointer;
 }
+
+
+/* Focus Mode Selected Elements */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > h4:nth-of-type(1) {
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > select:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > span:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) {
+
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) {
+
+}
+
+
+/* Focus Mode Selected Elements 2 */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(3) > h5:nth-of-type(1) {
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(3) > p:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(2) > span:nth-of-type(1) {
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(2) > h2:nth-of-type(1) {
+
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > strong:nth-of-type(1) {
+  font-family: system-ui;
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > strong:nth-of-type(1) {
+  font-family: system-ui;
+  font-size: 14px;
+}
+
+
+/* Make select options readable */
+select option {
+  background-color: #050508;
+  color: white;
+}
+
+
+/* Focus Mode Selected Elements 3 */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(3) > h5:nth-of-type(1) {
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(3) > p:nth-of-type(1) {
+  font-size: 13px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(2) > span:nth-of-type(1) {
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(2) > h2:nth-of-type(1) {
+
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > strong:nth-of-type(1) {
+  font-family: system-ui;
+  font-size: 14px;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > strong:nth-of-type(1) {
+  font-family: system-ui;
+  font-size: 14px;
+}
+
+/* Focus Mode Selected Elements 4 */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > button:nth-of-type(2) {
+  font-size: 14px;
+  width: 170px;
+}
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > button:nth-of-type(1) {
+  font-size: 14px;
+  width: 170px;
+}
+
+/* Focus Mode Selected Elements 5 */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(9) > button:nth-of-type(2) {
+  width: 170px;
+  font-size: 14px;
+}
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(9) > button:nth-of-type(1) {
+  font-size: 14px;
+  width: 170px;
+}

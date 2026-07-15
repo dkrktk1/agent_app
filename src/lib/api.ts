@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, doc, setDoc, getDocs, query, where, orderBy, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, orderBy, getDoc, deleteDoc } from 'firebase/firestore';
 
 export async function saveDailyLog(userId: string, date: string, data: any) {
   const docRef = doc(db, 'daily_logs', `${userId}_${date}`);
@@ -31,4 +31,10 @@ export async function getPlayerProfile(userId: string) {
   const docRef = doc(db, 'users', userId);
   const snapshot = await getDoc(docRef);
   return snapshot.exists() ? snapshot.data() : null;
+}
+
+
+export async function deletePlayerProfile(userId: string) {
+  const docRef = doc(db, 'users', userId);
+  await deleteDoc(docRef);
 }

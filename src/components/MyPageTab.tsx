@@ -45,7 +45,9 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
     setEditNumber(p.playerNumber || p.backNumber || p.number || "");
     setEditHandedness(p.playerHandedness || p.handedness || "");
     setEditBirthdate(p.playerBirthdate || p.age || "");
-    setEditSalary(p.playerSalary || p.salary || "");
+    let salaryStr = String(p.playerSalary || p.salary || "");
+    salaryStr = salaryStr.replace(/[^0-9]/g, '');
+    setEditSalary(salaryStr === '' ? '' : Number(salaryStr).toLocaleString());
     setEditProfileImg(p.profileImg || "");
   };
 
@@ -362,13 +364,13 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     </label>
                     <span className="text-xs text-[var(--text-muted)]">프로필 사진 변경</span>
                   </div>
-                  <div className="input-group !mb-0">
-                    <span className="material-icons-round">person</span>
-                    <input type="text" placeholder="이름" value={editName} onChange={e => setEditName(e.target.value)} required />
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">이름</label>
+                    <input type="text" placeholder="이름" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editName} onChange={e => setEditName(e.target.value)} required />
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label>소속 구단</label>
-                    <select value={editTeam} onChange={e => setEditTeam(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">소속 구단</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editTeam} onChange={e => setEditTeam(e.target.value)} required>
                       <option value="" disabled>소속구단 선택</option>
                       <option value="KIA 타이거즈">KIA 타이거즈</option>
                       <option value="삼성 라이온즈">삼성 라이온즈</option>
@@ -383,8 +385,8 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     </select>
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label>포지션</label>
-                    <select value={editPosition} onChange={e => setEditPosition(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">포지션</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editPosition} onChange={e => setEditPosition(e.target.value)} required>
                       <option value="" disabled>포지션 선택</option>
                       <option value="투수">투수</option>
                       <option value="선발투수">선발투수</option>
@@ -403,13 +405,13 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                       <option value="지명타자">지명타자</option>
                     </select>
                   </div>
-                  <div className="input-group !mb-0">
-                    <span className="material-icons-round">tag</span>
-                    <input type="text" placeholder="등번호 (예: 11)" value={editNumber} onChange={e => setEditNumber(e.target.value)} required />
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">등번호</label>
+                    <input type="text" placeholder="등번호 (예: 11)" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editNumber} onChange={e => setEditNumber(e.target.value)} required />
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label>투타</label>
-                    <select value={editHandedness} onChange={e => setEditHandedness(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">투타</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editHandedness} onChange={e => setEditHandedness(e.target.value)} required>
                       <option value="" disabled>투타 선택</option>
                       <option value="우투우타">우투우타</option>
                       <option value="우투좌타">우투좌타</option>
@@ -420,21 +422,22 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     </select>
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label>생년월일</label>
-                    <input type="date" value={editBirthdate} onChange={e => setEditBirthdate(e.target.value)} max="9999-12-31" required />
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">생년월일</label>
+                    <input type="date" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editBirthdate} onChange={e => setEditBirthdate(e.target.value)} max="9999-12-31" required />
                   </div>
-                  <div className="input-group !mb-0">
-                    <span className="material-icons-round">payments</span>
-                    <input type="number" placeholder="연봉 (단위: 원)" value={editSalary} onChange={e => setEditSalary(e.target.value)} />
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">연봉</label>
+                    <input type="text" placeholder="연봉 (단위: 원)" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editSalary} onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setEditSalary(val === '' ? '' : Number(val).toLocaleString());
+                    }} />
                   </div>
                   
-                </div>
-                <div className="p-6 border-t border-[rgba(255,255,255,0.05)] shrink-0">
-                  <div className="flex gap-2 w-full">
+                  <div className="flex gap-2 w-full mt-[12px] shrink-0">
                     {isAgent && (
-                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
+                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[30px] flex items-center justify-center text-[14px]" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
                     )}
-                    <button className="btn-primary flex-1" onClick={handleSaveProfile}>저장하기</button>
+                    <button className="btn-primary flex-1 h-[30px] flex items-center justify-center text-[14px]" onClick={handleSaveProfile}>저장하기</button>
                   </div>
                 </div>
               </>

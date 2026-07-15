@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useModalHistory } from '../hooks/useModalHistory';
-import { downloadSampleCSV } from '../utils';
+import { downloadSampleCSV, formatKoreanCurrency } from '../utils';
 
 export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: any, isAgent: boolean, onUpdatePlayer: (data: any) => void, key?: string }) {
   const [subTab, setSubTab] = useState('inventory');
@@ -10,7 +10,7 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
   const [invDate, setInvDate] = useState('');
   const [invName, setInvName] = useState('');
   const [invQty, setInvQty] = useState('');
-  const [invPrice, setInvPrice] = useState<number | ''>('');
+  const [invPrice, setInvPrice] = useState<string>('');
 
   const [isSponsorshipModalOpen, setIsSponsorshipModalOpen] = useState(false);
   const [editingSponsorshipIndex, setEditingSponsorshipIndex] = useState<number | null>(null);
@@ -21,13 +21,11 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
   const [sponsCompany, setSponsCompany] = useState('');
   const [sponsName, setSponsName] = useState('');
   const [sponsQty, setSponsQty] = useState('');
-  const [sponsPrice, setSponsPrice] = useState<number | ''>('');
+  const [sponsPrice, setSponsPrice] = useState<string>('');
 
   const [isBudgetEditing, setIsBudgetEditing] = useState(false);
-  const [budgetVal, setBudgetVal] = useState<number | ''>(player.budget || 0);
+  const [budgetVal, setBudgetVal] = useState<string>(player.budget ? Number(player.budget).toLocaleString() : '');
 
-  const [isPitchDeckOpen, setIsPitchDeckOpen] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(1);
   const [uploadState, setUploadState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [reportHtml, setReportHtml] = useState('');
   
@@ -113,17 +111,7 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
     }
   };
 
-  const formatKoreanCurrency = (amount: number) => {
-    if (amount >= 100000000) {
-      const eok = Math.floor(amount / 100000000);
-      const man = Math.floor((amount % 100000000) / 10000);
-      if (man > 0) {
-        return `${eok}억 ${man.toLocaleString()}만 원`;
-      }
-      return `${eok}억 원`;
-    }
-    return `${(amount / 10000).toLocaleString()}만 원`;
-  };
+
 
   const generateColdMail = () => {
     let brandName = "";
@@ -190,7 +178,7 @@ ${proposalPoint}
 
   const handleBudgetSave = () => {
     const p = JSON.parse(JSON.stringify(player));
-    p.budget = budgetVal;
+    p.budget = Number(String(budgetVal).replace(/[^0-9]/g, '')) || 0;
     onUpdatePlayer(p);
     setIsBudgetEditing(false);
   };
@@ -202,7 +190,7 @@ ${proposalPoint}
       setInvDate(player.inventory[index].date || '');
       setInvName(player.inventory[index].name);
       setInvQty(player.inventory[index].qty);
-      setInvPrice(player.inventory[index].price || '');
+      setInvPrice(player.inventory[index].price ? Number(player.inventory[index].price).toLocaleString() : '');
     } else {
       setInvDate(new Date().toISOString().split('T')[0]);
       setInvName('');
@@ -215,7 +203,7 @@ ${proposalPoint}
   const saveInventoryItem = () => {
     const p = JSON.parse(JSON.stringify(player));
     if (!p.inventory) p.inventory = [];
-    const newItem = { date: invDate, name: invName, qty: invQty, price: invPrice };
+    const newItem = { date: invDate, name: invName, qty: invQty, price: Number(String(invPrice).replace(/[^0-9]/g, '')) || 0 };
     if (editingInventoryIndex !== null) {
       p.inventory[editingInventoryIndex] = newItem;
     } else {
@@ -241,7 +229,7 @@ ${proposalPoint}
       setSponsCompany(player.sponsorshipItems[index].company || '');
       setSponsName(player.sponsorshipItems[index].name);
       setSponsQty(player.sponsorshipItems[index].qty);
-      setSponsPrice(player.sponsorshipItems[index].price || '');
+      setSponsPrice(player.sponsorshipItems[index].price ? Number(player.sponsorshipItems[index].price).toLocaleString() : '');
     } else {
       setSponsDate(new Date().toISOString().split('T')[0]);
       setSponsCompany('');
@@ -273,8 +261,8 @@ ${proposalPoint}
     setIsSponsorshipModalOpen(false);
   };
 
-  const usedAmount = player.inventory?.reduce((acc: number, cur: any) => acc + (cur.price || 0), 0) || 0;
-  const remainingAmount = (player.budget || 0) - usedAmount;
+  const usedAmount = player.inventory?.reduce((acc: number, cur: any) => acc + (Number(String(cur.price || 0).replace(/[^0-9]/g, '')) || 0), 0) || 0;
+  const remainingAmount = (Number(String(player.budget || 0).replace(/[^0-9]/g, '')) || 0) - usedAmount;
 
   return (
     <div className="tab-pane active pb-20">
@@ -324,7 +312,7 @@ ${proposalPoint}
                     <div className="flex justify-between items-center w-full">
                       <span className="text-[var(--text-muted)] text-sm whitespace-nowrap">수량: {inv.qty}</span>
                       <strong className="text-[var(--primary-color)] font-bold text-lg whitespace-nowrap">
-                        {inv.price ? inv.price.toLocaleString() + '원' : '-'}
+                        {inv.price ? Number(String(inv.price).replace(/[^0-9]/g, '')).toLocaleString() + '원' : '-'}
                       </strong>
                     </div>
                   </div>
@@ -341,21 +329,24 @@ ${proposalPoint}
                     isBudgetEditing ? (
                       <div className="flex items-center gap-2">
                         <input 
-                          type="number" 
+                          type="text" 
                           value={budgetVal} 
-                          onChange={(e) => setBudgetVal(e.target.value === '' ? '' : Number(e.target.value))}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            setBudgetVal(val === '' ? '' : Number(val).toLocaleString());
+                          }}
                           className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded px-2 py-1 text-white text-right w-24 text-sm outline-none focus:border-[var(--primary-color)] transition-colors"
                         />
                         <button className="text-xs bg-[var(--primary-color)] text-[var(--bg-color)] px-2 py-1 rounded font-medium" onClick={handleBudgetSave}>저장</button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setBudgetVal(''); setIsBudgetEditing(true); }}>
-                        <span className="text-white text-sm font-medium">{(player.budget || 0).toLocaleString()}원</span>
+                        <span className="text-white text-sm font-medium">{Number(String(player.budget || 0).replace(/[^0-9]/g, '')).toLocaleString()}원</span>
                         <span className="material-icons-round text-[14px] text-gray-500">edit</span>
                       </div>
                     )
                   ) : (
-                    <span className="text-white text-sm font-medium">{(player.budget || 0).toLocaleString()}원</span>
+                    <span className="text-white text-sm font-medium">{Number(String(player.budget || 0).replace(/[^0-9]/g, '')).toLocaleString()}원</span>
                   )}
                 </div>
                 <div className="flex justify-between items-center mb-2">
@@ -398,7 +389,7 @@ ${proposalPoint}
                     <div className="flex justify-between items-center w-full">
                       <span className="text-[var(--text-muted)] text-sm whitespace-nowrap">상세/기간: {spons.qty}</span>
                       <strong className="text-[var(--primary-color)] font-bold text-lg whitespace-nowrap">
-                        {spons.price ? spons.price.toLocaleString() + '원' : '-'}
+                        {spons.price ? Number(String(spons.price).replace(/[^0-9]/g, '')).toLocaleString() + '원' : '-'}
                       </strong>
                     </div>
                   </div>
@@ -418,11 +409,11 @@ ${proposalPoint}
             <h3>KBO 선수 연봉 산출 시뮬레이터</h3>
           </div>
       <div className="biz-card">
-        <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col gap-[12px]">
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-gray-300">계약 신분</span>
             <select 
-              className="bg-[#1C2331] border border-[rgba(255,255,255,0.1)] rounded p-2 text-white outline-none focus:border-[var(--primary-color)]"
+              className="bg-[#1C2331] border border-[rgba(255,255,255,0.1)] rounded p-2 text-white outline-none focus:border-[var(--card-border)] focus:border-[var(--primary-color)]"
               value={contractType}
               onChange={(e) => setContractType(e.target.value as 'normal' | 'fa')}
             >
@@ -487,11 +478,6 @@ ${proposalPoint}
           </p>
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <button className="btn-primary" onClick={() => setIsPitchDeckOpen(true)}>
-            <span className="material-icons-round">description</span>구단 제출용 Pitch Deck 생성 (PDF)
-          </button>
-        </div>
       </div>
 
       <div className="section-title-group"><h3>AI 스탯 업로드 및 해석</h3></div>
@@ -511,66 +497,6 @@ ${proposalPoint}
       </>
       )}
 
-      {/* Pitch Deck Modal */}
-      <div className={`modal ${isPitchDeckOpen ? 'active' : ''}`}>
-        <div className="modal-content-wide">
-          <div className="flex justify-between items-center mb-6">
-            <h4>가치 증명 Pitch Deck (PDF 시뮬레이션)</h4>
-            <span className="material-icons-round close-btn" onClick={() => setIsPitchDeckOpen(false)}>close</span>
-          </div>
-          <div className="modal-body pitch-deck-body">
-            <div className="pitch-deck-carousel">
-              <div className={`deck-slide ${currentSlide === 1 ? 'active' : ''}`}>
-                <div className="slide-header">NOWIWON MANAGEMENT GROUP</div>
-                <div className="slide-title">선수 가치 입증 분석 보고서</div>
-                <div className="slide-player-profile">
-                  <h3>{player.name} ({player.position})</h3>
-                  <p>시즌 성적: WAR {player.contracts.war.toFixed(1)} • 예상 시장 가치: ₩{player.contracts.marketVal.toLocaleString()}</p>
-                </div>
-                <div className="slide-footer">본 리포트는 구단 제출용 가치 산정 자료입니다.</div>
-              </div>
-              <div className={`deck-slide ${currentSlide === 2 ? 'active' : ''}`}>
-                <div className="slide-header">선수 퍼포먼스 세부 지표</div>
-                <div className="slide-content">
-                  <table className="pdf-table">
-                    <thead>
-                      <tr><th>구분</th><th>시즌 성적</th><th>리그 평균</th><th>대비 백분위</th></tr>
-                    </thead>
-                    <tbody>
-                      {player.contracts.pdfData.map((row: any, idx: number) => (
-                        <tr key={idx}><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="slide-footer">Statcast 추적 기반 데이터 매칭</div>
-              </div>
-              <div className={`deck-slide ${currentSlide === 3 ? 'active' : ''}`}>
-                <div className="slide-header">적정 연봉 가치 제안</div>
-                <div className="slide-content">
-                  <div className="pdf-callout-box">
-                    <p>유사 계약 Comps 계약 건당 평균 대비 조정 시장가치:</p>
-                    <h2>₩{player.contracts.proposalVal.toLocaleString()}</h2>
-                  </div>
-                  <p className="pdf-desc">최근 3년 내 계약한 동일 포지션, 유사 연령, 동일 WAR 범위 선수 분석을 바탕으로 제안한 최종 연봉 안안입니다.</p>
-                </div>
-                <div className="slide-footer">NOWIWON AI Salary Engine</div>
-              </div>
-            </div>
-            <div className="deck-controls">
-              <button className="btn-secondary" onClick={() => setCurrentSlide(c => Math.max(1, c - 1))}>이전</button>
-              <span className="slide-counter"><span>{currentSlide}</span> / 3</span>
-              <button className="btn-secondary" onClick={() => setCurrentSlide(c => Math.min(3, c + 1))}>다음</button>
-            </div>
-            <button className="btn-primary" onClick={() => {
-              alert(`[PDF 생성기 가동]\n${player.name} 선수의 '가치 입증 피칭 덱'이 고해상도 PDF 리포트로 다운로드되었습니다!`);
-              setIsPitchDeckOpen(false);
-            }}>
-              <span className="material-icons-round">download</span>PDF 파일로 다운로드
-            </button>
-          </div>
-        </div>
-      </div>
 
       {isInventoryModalOpen && (
         <div className="fixed inset-0 z-[2000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center" onClick={() => setIsInventoryModalOpen(false)}>
@@ -581,29 +507,32 @@ ${proposalPoint}
                 <span className="material-icons-round">close</span>
               </button>
             </div>
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="input-group-select">
-                <label>날짜</label>
-                <input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} max="9999-12-31" />
+            <div className="flex flex-col gap-[12px]">
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">날짜</label>
+                <input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} max="9999-12-31" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">품명</label>
-                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 스파이크, 글러브" value={invName} onChange={e => setInvName(e.target.value)} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">품명</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 스파이크, 글러브" value={invName} onChange={e => setInvName(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">수량</label>
-                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 2켤레, 1개" value={invQty} onChange={e => setInvQty(e.target.value)} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">수량</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 2켤레, 1개" value={invQty} onChange={e => setInvQty(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">지원 금액 환산</label>
-                <input type="number" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="금액" value={invPrice} onChange={e => setInvPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">지원 금액 환산</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="금액" value={invPrice} onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setInvPrice(val === '' ? '' : Number(val).toLocaleString());
+                }} />
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3" style={{ marginTop: "12px" }}>
               {editingInventoryIndex !== null && (
-                <button className="flex-1 bg-red-500/20 text-red-400 text-sm font-bold py-3 rounded-xl hover:bg-red-500/30 transition-colors" onClick={deleteInventoryItem}>삭제</button>
+                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteInventoryItem}>삭제</button>
               )}
-              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] text-sm font-bold py-3 rounded-xl hover:opacity-90 transition-opacity" onClick={saveInventoryItem}>저장</button>
+              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] font-bold rounded-xl hover:opacity-90 transition-opacity h-[30px] flex items-center justify-center text-[14px]" onClick={saveInventoryItem}>저장</button>
             </div>
           </div>
         </div>
@@ -618,33 +547,36 @@ ${proposalPoint}
                 <span className="material-icons-round">close</span>
               </button>
             </div>
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="input-group-select">
-                <label>날짜</label>
-                <input type="date" value={sponsDate} onChange={e => setSponsDate(e.target.value)} max="9999-12-31" />
+            <div className="flex flex-col gap-[12px]">
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">날짜</label>
+                <input type="date" value={sponsDate} onChange={e => setSponsDate(e.target.value)} max="9999-12-31" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">후원사</label>
-                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 나이키, 언더아머" value={sponsCompany} onChange={e => setSponsCompany(e.target.value)} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">후원사</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 나이키, 언더아머" value={sponsCompany} onChange={e => setSponsCompany(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">후원 내용</label>
-                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 연간 용품 지원" value={sponsName} onChange={e => setSponsName(e.target.value)} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">후원 내용</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 연간 용품 지원" value={sponsName} onChange={e => setSponsName(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">상세 / 기간</label>
-                <input type="text" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="예: 2026.01 - 2026.12" value={sponsQty} onChange={e => setSponsQty(e.target.value)} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">상세 / 기간</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 2026.01 - 2026.12" value={sponsQty} onChange={e => setSponsQty(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-bold text-white mb-3 block">후원 금액</label>
-                <input type="number" className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[var(--primary-color)] transition-colors" placeholder="금액" value={sponsPrice} onChange={e => setSponsPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">후원 금액</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="금액" value={sponsPrice} onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setSponsPrice(val === '' ? '' : Number(val).toLocaleString());
+                }} />
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3" style={{ marginTop: "12px" }}>
               {editingSponsorshipIndex !== null && (
-                <button className="flex-1 bg-red-500/20 text-red-400 text-sm font-bold py-3 rounded-xl hover:bg-red-500/30 transition-colors" onClick={deleteSponsorshipItem}>삭제</button>
+                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteSponsorshipItem}>삭제</button>
               )}
-              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] text-sm font-bold py-3 rounded-xl hover:opacity-90 transition-opacity" onClick={saveSponsorshipItem}>저장</button>
+              <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] font-bold rounded-xl hover:opacity-90 transition-opacity h-[30px] flex items-center justify-center text-[14px]" onClick={saveSponsorshipItem}>저장</button>
             </div>
           </div>
         </div>

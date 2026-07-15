@@ -236,7 +236,10 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                 </div>
                 <div className="input-group">
                   <span className="material-icons-round">payments</span>
-                  <input type="number" placeholder="연봉 (단위: 원)" value={playerSalary} onChange={e => setPlayerSalary(e.target.value)} required />
+                  <input type="text" placeholder="연봉 (단위: 원)" value={playerSalary} onChange={e => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setPlayerSalary(val === '' ? '' : Number(val).toLocaleString());
+                  }} required />
                 </div>
                 <div className="input-group">
                   <span className="material-icons-round">shield</span>

@@ -8,7 +8,7 @@ import MyPageTab from './MyPageTab';
 import { getComprehensiveStatus } from './ComprehensiveStatusDashboard';
 import { BASE_PLAYER_TEMPLATE } from '../lib/constants';
 import { rebuildChartsFromSchedules } from '../utils';
-import { savePlayerProfile, getPlayerProfile } from '../lib/api';
+import { savePlayerProfile, getPlayerProfile, deletePlayerProfile } from '../lib/api';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -169,6 +169,16 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
     }
   }, [activePlayerId, allPlayers, isAgent, currentUser, isLoading]);
 
+  useEffect(() => {
+    if (activePlayer && activePlayer.schedules) {
+      const hasInvalidSchedules = activePlayer.schedules.some((s: any) => s.date && s.date.length > 5);
+      if (hasInvalidSchedules) {
+        const cleanedPlayer = rebuildChartsFromSchedules(activePlayer);
+        updatePlayer(activePlayer.id, cleanedPlayer);
+      }
+    }
+  }, [activePlayer]);
+
   const updatePlayer = (id: string, newPlayerData: any) => {
     const updated = { ...allPlayers, [id]: newPlayerData };
     setAllPlayers(updated);
@@ -205,7 +215,9 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const dStr = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${monthStr}/${dStr}`;
       
       const acwr = 0.8 + (Math.random() * 0.7); // 0.8 to 1.5
       const gripLeft = 40 + Math.floor(Math.random() * 10);
@@ -466,8 +478,10 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               setAllPlayers(updated);
               
               try {
-                // Should delete from firebase too but keep simple
-              } catch(e) {}
+                await deletePlayerProfile(id);
+              } catch(e) {
+                console.error("Error deleting profile:", e);
+              }
             }}
             onLogout={() => setShowLogoutConfirm(true)} 
           />
