@@ -7,7 +7,7 @@ import ScheduleTab from './ScheduleTab';
 import MyPageTab from './MyPageTab';
 import { getComprehensiveStatus } from './ComprehensiveStatusDashboard';
 import { BASE_PLAYER_TEMPLATE } from '../lib/constants';
-import { rebuildChartsFromSchedules } from '../utils';
+import { rebuildChartsFromSchedules, formatKoreanCurrency } from '../utils';
 import { savePlayerProfile, getPlayerProfile, deletePlayerProfile } from '../lib/api';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -204,6 +204,23 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
     return ageStr;
   };
 
+  const formatPlayerServiceAndSalary = (p: any) => {
+    const parts = [];
+    if (p.playerJoinYear || p.joinYear) {
+      const joinDateStr = p.playerJoinYear || p.joinYear;
+      if (joinDateStr.includes('-')) {
+        const joinYear = new Date(joinDateStr).getFullYear();
+        const currentYear = new Date().getFullYear();
+        const yearsOfService = currentYear - joinYear + 1;
+        parts.push(`${yearsOfService}년차`);
+      }
+    }
+    if (p.playerSalary || p.salary) {
+      parts.push(formatKoreanCurrency(p.playerSalary || p.salary));
+    }
+    return parts.join(' · ');
+  };
+
 
   const createSamplePlayer = () => {
     const today = new Date();
@@ -330,7 +347,10 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
             </div>
             <div className="summary-info">
               <h2>{p.name}</h2>
-              <p className="text-[13px] text-[var(--text-muted)] mb-1">{formatPlayerAge(p)}</p>
+              <p className="text-[13px] text-[var(--text-muted)] mb-1">
+                {formatPlayerAge(p)}
+                <span className="block mt-0.5">{formatPlayerServiceAndSalary(p)}</span>
+              </p>
               {renderPlayerDetails(p)}
               <div className="player-badges mt-[24px]">
                 <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
@@ -409,7 +429,10 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
                 </div>
                 <div className="summary-info">
                   <h2>{activePlayer.name}</h2>
-                  <p className="text-[13px] text-[var(--text-muted)] mb-1">{formatPlayerAge(activePlayer)}</p>
+                  <p className="text-[13px] text-[var(--text-muted)] mb-1">
+                    {formatPlayerAge(activePlayer)}
+                    <span className="block mt-0.5">{formatPlayerServiceAndSalary(activePlayer)}</span>
+                  </p>
                   {renderPlayerDetails(activePlayer)}
                   <div className="player-badges mt-[24px]">
                     <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>

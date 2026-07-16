@@ -180,7 +180,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const currentYear = new Date().getFullYear();
   const realCareSchedules = (player.schedules?.filter((s: any) => s.title?.includes('[컨디셔닝]')) || []).slice().reverse();
 
-  const gripHistoryData = realCareSchedules.map((s: any) => ({
+  const gripHistoryData = realCareSchedules.filter((s: any) => s.gripLeft > 0 || s.gripRight > 0 || s.grip > 0).map((s: any) => ({
     id: s.date,
     date: `${currentYear}-${s.date.replace('/', '-')}`,
     left: s.gripLeft || 0,
@@ -188,7 +188,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     grip: s.grip || 0
   }));
 
-  const acwrHistoryData = realCareSchedules.map((s: any) => ({
+  const acwrHistoryData = realCareSchedules.filter((s: any) => s.rpe > 0 || s.duration > 0).map((s: any) => ({
     id: s.date,
     date: `${currentYear}-${s.date.replace('/', '-')}`,
     rpe: s.rpe || 0,
@@ -196,7 +196,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     acwr: s.acwr || 0
   }));
 
-  const sleepHistoryData = realCareSchedules.map((s: any) => ({
+  const sleepHistoryData = realCareSchedules.filter((s: any) => s.sleep > 0).map((s: any) => ({
     id: s.date,
     date: `${currentYear}-${s.date.replace('/', '-')}`,
     duration: s.sleep || 0,

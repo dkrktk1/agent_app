@@ -48,7 +48,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
     let newUser: any = { userId, password, role, createdAt: new Date().toISOString() };
 
     if (role === "player") {
-      if (!playerName || !playerPosition || !playerBirthdate || !playerTeam || !playerNumber || !playerHandedness || !playerSalary) {
+      if (!playerName || !playerPosition || !playerBirthdate || !playerTeam || !playerNumber || !playerHandedness || !playerSalary || !playerJoinYear) {
         setIsLoading(false);
         setErrorMsg("모든 선수 정보를 입력해 주세요.");
         return;
@@ -61,6 +61,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
       newUser.playerNumber = playerNumber;
       newUser.playerHandedness = playerHandedness;
       newUser.playerSalary = playerSalary;
+      newUser.playerJoinYear = playerJoinYear;
     } else {
       if (agentCode !== "AGENT99") {
         setIsLoading(false);

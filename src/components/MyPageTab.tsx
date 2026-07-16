@@ -14,6 +14,7 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
   const [editNumber, setEditNumber] = useState('');
   const [editHandedness, setEditHandedness] = useState('');
   const [editBirthdate, setEditBirthdate] = useState('');
+  const [editJoinYear, setEditJoinYear] = useState('');
   const [editSalary, setEditSalary] = useState('');
   const [editProfileImg, setEditProfileImg] = useState('');
   const [cropImgUrl, setCropImgUrl] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
     setEditNumber(p.playerNumber || p.backNumber || p.number || "");
     setEditHandedness(p.playerHandedness || p.handedness || "");
     setEditBirthdate(p.playerBirthdate || p.age || "");
+    setEditJoinYear(p.playerJoinYear || p.joinYear || "");
     let salaryStr = String(p.playerSalary || p.salary || "");
     salaryStr = salaryStr.replace(/[^0-9]/g, '');
     setEditSalary(salaryStr === '' ? '' : Number(salaryStr).toLocaleString());
@@ -123,6 +125,8 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
         playerHandedness: editHandedness,
         handedness: editHandedness,
         playerBirthdate: editBirthdate,
+        playerJoinYear: editJoinYear,
+        joinYear: editJoinYear,
         age: editBirthdate,
         playerSalary: editSalary,
         salary: editSalary,
@@ -207,6 +211,24 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                           return age;
                         })()
                       }세)`
+                    : '-'}
+                </strong>
+              </div>
+              <div className="info-item">
+                <span>입단 연도</span>
+                <strong>
+                  {activeUser.playerJoinYear || activeUser.joinYear 
+                    ? `${activeUser.playerJoinYear || activeUser.joinYear} (${
+                        (() => {
+                          const joinDate = activeUser.playerJoinYear || activeUser.joinYear;
+                          if (joinDate && joinDate.includes('-')) {
+                            const joinYearNum = new Date(joinDate).getFullYear();
+                            const currentYear = new Date().getFullYear();
+                            return currentYear - joinYearNum + 1;
+                          }
+                          return '-';
+                        })()
+                      }년차)`
                     : '-'}
                 </strong>
               </div>
@@ -330,6 +352,23 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                       <span className="font-semibold text-sm text-white">{editBirthdate || '-'}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 first:pt-0 last:pb-0">
+                      <span className="text-[var(--text-muted)] text-sm">입단 연도</span>
+                      <span className="font-semibold text-sm text-white">
+                        {editJoinYear 
+                          ? `${editJoinYear} (${
+                              (() => {
+                                if (editJoinYear && editJoinYear.includes('-')) {
+                                  const joinYearNum = new Date(editJoinYear).getFullYear();
+                                  const currentYear = new Date().getFullYear();
+                                  return currentYear - joinYearNum + 1;
+                                }
+                                return '-';
+                              })()
+                            }년차)`
+                          : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 first:pt-0 last:pb-0">
                       <span className="text-[var(--text-muted)] text-sm">연봉</span>
                       <span className="font-semibold text-sm text-white">{formatKoreanCurrency(editSalary)}</span>
                     </div>
@@ -365,12 +404,20 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     <span className="text-xs text-[var(--text-muted)]">프로필 사진 변경</span>
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">이름</label>
-                    <input type="text" placeholder="이름" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editName} onChange={e => setEditName(e.target.value)} required />
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">이름</label>
+                    <input type="text" placeholder="이름" className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editName} onChange={e => setEditName(e.target.value)} required />
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">소속 구단</label>
-                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editTeam} onChange={e => setEditTeam(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">생년월일</label>
+                    <input type="date" className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editBirthdate} onChange={e => setEditBirthdate(e.target.value)} max="9999-12-31" required />
+                  </div>
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">입단 연도</label>
+                    <input type="date" placeholder="입단 연도 (예: 2024)" className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editJoinYear} onChange={e => setEditJoinYear(e.target.value)} max="9999-12-31" required />
+                  </div>
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">소속 구단</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editTeam} onChange={e => setEditTeam(e.target.value)} required>
                       <option value="" disabled>소속구단 선택</option>
                       <option value="KIA 타이거즈">KIA 타이거즈</option>
                       <option value="삼성 라이온즈">삼성 라이온즈</option>
@@ -385,8 +432,8 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     </select>
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">포지션</label>
-                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editPosition} onChange={e => setEditPosition(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">포지션</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editPosition} onChange={e => setEditPosition(e.target.value)} required>
                       <option value="" disabled>포지션 선택</option>
                       <option value="투수">투수</option>
                       <option value="선발투수">선발투수</option>
@@ -406,12 +453,19 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                     </select>
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">등번호</label>
-                    <input type="text" placeholder="등번호 (예: 11)" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editNumber} onChange={e => setEditNumber(e.target.value)} required />
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">등번호</label>
+                    <input type="text" placeholder="등번호 (예: 11)" className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editNumber} onChange={e => setEditNumber(e.target.value)} required />
                   </div>
                   <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">투타</label>
-                    <select className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editHandedness} onChange={e => setEditHandedness(e.target.value)} required>
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">연봉</label>
+                    <input type="text" placeholder="연봉 (단위: 원)" className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editSalary} onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setEditSalary(val === '' ? '' : Number(val).toLocaleString());
+                    }} />
+                  </div>
+                  <div className="input-group-select !mb-0">
+                    <label className="text-[13px] font-normal text-gray-300 mb-0 block">투타</label>
+                    <select className="!h-[30px] !py-0 !px-3 !text-[13px]" value={editHandedness} onChange={e => setEditHandedness(e.target.value)} required>
                       <option value="" disabled>투타 선택</option>
                       <option value="우투우타">우투우타</option>
                       <option value="우투좌타">우투좌타</option>
@@ -420,17 +474,6 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                       <option value="우투양타">우투양타</option>
                       <option value="좌투양타">좌투양타</option>
                     </select>
-                  </div>
-                  <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">생년월일</label>
-                    <input type="date" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editBirthdate} onChange={e => setEditBirthdate(e.target.value)} max="9999-12-31" required />
-                  </div>
-                  <div className="input-group-select !mb-0">
-                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">연봉</label>
-                    <input type="text" placeholder="연봉 (단위: 원)" className="!h-[30px] !py-0 !px-3 !text-[14px]" value={editSalary} onChange={e => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setEditSalary(val === '' ? '' : Number(val).toLocaleString());
-                    }} />
                   </div>
                   
                   <div className="flex gap-2 w-full mt-[12px] shrink-0">
