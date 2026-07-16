@@ -729,15 +729,17 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
         </div>
 
       <div className="card-chart">
-        <div className="chart-header flex justify-between items-center mb-4">
-          <h4 className="truncate" style={{ marginBottom: 0 }}>ACWR (급성/만성 부하 비율) 추이 그래프</h4>
-          <button 
-            onClick={() => setShowPastAcwrModal(true)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors shrink-0"
-          >
-            <span className="material-icons-round text-[18px]">history</span>
-            지난 기록 보기
-          </button>
+        <div className="flex flex-col gap-2 mb-4">
+          <h4 className="text-left m-0 text-[13px]">ACWR (급성/만성 부하 비율) 추이 그래프</h4>
+          <div className="flex justify-end">
+            <button 
+              onClick={() => setShowPastAcwrModal(true)}
+              className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-[13px] transition-colors shrink-0"
+            >
+              <span className="material-icons-round text-[18px]">history</span>
+              지난 기록 보기
+            </button>
+          </div>
         </div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -765,10 +767,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       </div>
       <div className="card-chart">
         <div className="chart-header flex justify-between items-center mb-4">
-          <h4 style={{ marginBottom: 0 }}>최근 7일 악력 추이</h4>
+          <h4 className="text-[13px]" style={{ marginBottom: 0 }}>최근 7일 악력 추이</h4>
           <button 
             onClick={() => setShowPastGripModal(true)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-[13px] transition-colors"
           >
             <span className="material-icons-round text-[18px]">history</span>
             지난 기록 보기
@@ -863,15 +865,17 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       </div>
 
       <div className="card-chart">
-        <div className="chart-header flex flex-col items-start gap-2 mb-4">
-          <h4 style={{ marginBottom: 0 }}>최근 7일 수면 패턴 (Sleep Trend)</h4>
-          <button 
-            onClick={() => setShowPastSleepModal(true)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-          >
-            <span className="material-icons-round text-[18px]">history</span>
-            지난 기록 보기
-          </button>
+        <div className="flex flex-col gap-2 mb-4">
+          <h4 className="text-left m-0 text-[13px]">최근 7일 수면 패턴 (Sleep Trend)</h4>
+          <div className="flex justify-end">
+            <button 
+              onClick={() => setShowPastSleepModal(true)}
+              className="flex items-center gap-1.5 text-gray-400 hover:text-white font-bold text-[13px] transition-colors"
+            >
+              <span className="material-icons-round text-[18px]">history</span>
+              지난 기록 보기
+            </button>
+          </div>
         </div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">

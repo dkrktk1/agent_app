@@ -243,7 +243,7 @@ export default function MyPageTab({ currentUser, playersCount, allPlayers, onUpd
                         <span className="font-bold text-[var(--primary-color)]">{teamName}</span>
                         <span className="text-[var(--text-muted)] text-sm ml-2">({teamGroups[teamName].length}명)</span>
                       </div>
-                      <div className="flex flex-col divide-y divide-[var(--card-border)]">
+                      <div className="flex flex-col">
                         {teamGroups[teamName].map((p: any) => (
                           <div 
                             key={p.id}

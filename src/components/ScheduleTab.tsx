@@ -467,12 +467,14 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
           <h3>오늘의 일정</h3>
         </div>
         {todaysEvents.length > 0 ? (
-          <div className="flex bg-[rgba(255,255,255,0.03)] rounded-xl border border-[rgba(255,255,255,0.05)] overflow-hidden">
-            <div className="flex flex-col items-center justify-center bg-[rgba(0,0,0,0.25)] font-bold px-4 py-4 min-w-[70px] border-r border-[rgba(255,255,255,0.05)] text-[var(--primary-color)]">
-              <span className="text-sm">{todaysEvents[0].date.split('/')[0]}월</span>
-              <span className="text-2xl">{todaysEvents[0].date.split('/')[1]}</span>
+          <div className="player-summary-card">
+            <div className="summary-avatar-container shrink-0 self-start">
+              <div className="player-profile-img flex flex-col items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] text-[var(--primary-color)] font-bold" style={{ borderRadius: '50%' }}>
+                <span className="text-[12px] leading-none mb-1">{todaysEvents[0].date.split('/')[0]}월</span>
+                <span className="text-[20px] leading-none">{todaysEvents[0].date.split('/')[1]}</span>
+              </div>
             </div>
-            <div className="flex flex-col flex-1 divide-y divide-[rgba(255,255,255,0.05)]">
+            <div className="flex flex-col flex-1 w-full">
               {todaysEvents.map((s: any, i: number) => {
                 const isBiz = s.title.includes("스폰서십") || s.title.includes("화보") || s.title.includes("검진") || s.title.includes("행사") || s.title.includes("[비즈니스]");
                 const isCare = s.title.includes("[컨디셔닝]");
@@ -492,8 +494,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                 return (
                   <div 
                     key={i} 
-                    className={`flex flex-col p-4 cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors`}
-                    onClick={(e) => handleEventClick(e, s)}
+                    className={`flex flex-col py-3 px-2 first:pt-0 last:pb-0`}
                   >
                     <h5 className="font-bold text-[14px] mb-1">
                       <span className={`${prefixColor}`}>{prefix}</span> <span className="text-white">{titleWithoutPrefix}</span>
@@ -522,7 +523,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
             </div>
           </div>
         ) : (
-          <div className="bg-[#1C2331] rounded-xl p-4 text-center text-gray-500 border border-[rgba(255,255,255,0.05)]">
+          <div className="bg-black rounded-[24px] p-4 text-center text-gray-500 border border-[var(--card-border)]">
             오늘 예정된 일정이 없습니다.
           </div>
         )}
@@ -598,7 +599,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
         </button>
       </div>
 
-      <div className="bg-[#1C2331] rounded-2xl p-4 border border-[rgba(255,255,255,0.05)]">
+      <div className="bg-black rounded-[24px] p-4 border border-[var(--card-border)]">
         <div className="flex justify-between items-center mb-4">
           <button className="p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)] text-gray-400 hover:text-white transition-colors flex items-center justify-center" onClick={prevMonth}>
             <span className="material-icons-round">chevron_left</span>
@@ -610,7 +611,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               className="bg-transparent text-lg font-semibold border-none outline-none cursor-pointer hover:bg-[rgba(255,255,255,0.05)] rounded px-2 py-1 appearance-none text-center"
             >
               {Array.from({ length: 10 }).map((_, i) => (
-                <option key={i} value={2026 + i} className="bg-[#1C2331] text-white">{2026 + i}년</option>
+                <option key={i} value={2026 + i} className="bg-black text-white">{2026 + i}년</option>
               ))}
             </select>
             <select 
@@ -619,7 +620,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               className="bg-transparent text-lg font-semibold border-none outline-none cursor-pointer hover:bg-[rgba(255,255,255,0.05)] rounded px-2 py-1 appearance-none text-center"
             >
               {Array.from({ length: 12 }).map((_, i) => (
-                <option key={i} value={i} className="bg-[#1C2331] text-white">{i + 1}월</option>
+                <option key={i} value={i} className="bg-black text-white">{i + 1}월</option>
               ))}
             </select>
           </div>
