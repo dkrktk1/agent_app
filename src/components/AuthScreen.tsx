@@ -18,6 +18,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
   const [playerNumber, setPlayerNumber] = useState('');
   const [playerHandedness, setPlayerHandedness] = useState('');
   const [playerSalary, setPlayerSalary] = useState('');
+  const [playerJoinYear, setPlayerJoinYear] = useState('');
   
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -140,7 +141,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
             }}
           >
             <h2>로그인</h2>
-            {errorMsg && <p className={`text-sm mb-4 text-center whitespace-nowrap break-keep ${errorMsg.includes('완료') ? 'text-white' : 'text-red-400'}`}>{errorMsg}</p>}
+            {errorMsg && <p className={`text-sm mb-[12px] text-center whitespace-nowrap break-keep ${errorMsg.includes('완료') ? 'text-white' : 'text-red-400'}`}>{errorMsg}</p>}
             <div className="input-group">
               <span className="material-icons-round">person</span>
               <input type="text" placeholder="아이디" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -149,7 +150,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
               <span className="material-icons-round">lock</span>
               <input type="password" placeholder="비밀번호" value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
-            <button type="submit" className="btn-primary" disabled={isLoading}>
+            <button type="submit" className="btn-primary !h-[30px] !py-0 text-[13px]" disabled={isLoading}>
               {isLoading ? '연결 중...' : '로그인'}
             </button>
             <p className="auth-toggle-text">계정이 없으신가요? <span onClick={() => { setIsLoginMode(false); setErrorMsg(''); }}>회원가입</span></p>
@@ -164,7 +165,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
               <span className="material-icons-round" style={{ fontSize: '18px' }}>close</span>
             </button>
             <h2 style={{ paddingRight: '32px' }}>회원가입</h2>
-            {errorMsg && <p className={`text-sm mb-4 text-center whitespace-nowrap break-keep ${errorMsg.includes('완료') ? 'text-white' : 'text-red-400'}`}>{errorMsg}</p>}
+            {errorMsg && <p className={`text-sm mb-[12px] text-center whitespace-nowrap break-keep ${errorMsg.includes('완료') ? 'text-white' : 'text-red-400'}`}>{errorMsg}</p>}
             <div className="input-group">
               <span className="material-icons-round">person</span>
               <input type="text" placeholder="아이디" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -193,9 +194,39 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                   <span className="material-icons-round">badge</span>
                   <input type="text" placeholder="이름" value={playerName} onChange={e => setPlayerName(e.target.value)} required />
                 </div>
+                <div>
+                  <label className="text-[13px] text-[var(--text-muted)] block mb-[6px]">생년월일</label>
+                  <div className="input-group mb-[12px]">
+                    <span className="material-icons-round">event</span>
+                    <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required style={{ appearance: 'none', colorScheme: 'dark' }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[13px] text-[var(--text-muted)] block mb-[6px] mt-[8px]">입단 연도</label>
+                  <div className="input-group mb-[12px]">
+                    <span className="material-icons-round">calendar_today</span>
+                    <input type="date" placeholder="입단 연도 (예: 2024)" value={playerJoinYear} onChange={e => setPlayerJoinYear(e.target.value)} max="9999-12-31" required style={{ appearance: 'none', colorScheme: 'dark' }} />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <span className="material-icons-round">shield</span>
+                  <select value={playerTeam} onChange={e => setPlayerTeam(e.target.value)} required style={{ appearance: 'none' }}>
+                    <option value="" disabled>소속구단 선택</option>
+                    <option value="KIA 타이거즈" className="text-black">KIA 타이거즈</option>
+                    <option value="삼성 라이온즈" className="text-black">삼성 라이온즈</option>
+                    <option value="LG 트윈스" className="text-black">LG 트윈스</option>
+                    <option value="두산 베어스" className="text-black">두산 베어스</option>
+                    <option value="KT 위즈" className="text-black">KT 위즈</option>
+                    <option value="SSG 랜더스" className="text-black">SSG 랜더스</option>
+                    <option value="롯데 자이언츠" className="text-black">롯데 자이언츠</option>
+                    <option value="한화 이글스" className="text-black">한화 이글스</option>
+                    <option value="NC 다이노스" className="text-black">NC 다이노스</option>
+                    <option value="키움 히어로즈" className="text-black">키움 히어로즈</option>
+                  </select>
+                </div>
                 <div className="input-group">
                   <span className="material-icons-round">sports_baseball</span>
-                  <select value={playerPosition} onChange={e => setPlayerPosition(e.target.value)} required style={{ width: '100%', background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '14px 14px 14px 44px', color: '#fff', fontSize: '14px', outline: 'none', appearance: 'none' }}>
+                  <select value={playerPosition} onChange={e => setPlayerPosition(e.target.value)} required style={{ appearance: 'none' }}>
                     <option value="" disabled>포지션 선택</option>
                     <option value="투수" className="text-black">투수</option>
                     <option value="내야수" className="text-black">내야수</option>
@@ -219,22 +250,6 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                   <input type="number" placeholder="등번호" value={playerNumber} onChange={e => setPlayerNumber(e.target.value)} required />
                 </div>
                 <div className="input-group">
-                  <span className="material-icons-round">front_hand</span>
-                  <select value={playerHandedness} onChange={e => setPlayerHandedness(e.target.value)} required style={{ width: '100%', background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '14px 14px 14px 44px', color: '#fff', fontSize: '14px', outline: 'none', appearance: 'none' }}>
-                    <option value="" disabled>투타 선택</option>
-                    <option value="우투우타" className="text-black">우투우타</option>
-                    <option value="우투좌타" className="text-black">우투좌타</option>
-                    <option value="우투양타" className="text-black">우투양타 (스위치)</option>
-                    <option value="좌투좌타" className="text-black">좌투좌타</option>
-                    <option value="좌투우타" className="text-black">좌투우타</option>
-                    <option value="좌투양타" className="text-black">좌투양타 (스위치)</option>
-                  </select>
-                </div>
-                <div className="input-group-select">
-                  <label>생년월일</label>
-                  <input type="date" placeholder="생년월일" value={playerBirthdate} onChange={e => setPlayerBirthdate(e.target.value)} max="9999-12-31" required />
-                </div>
-                <div className="input-group">
                   <span className="material-icons-round">payments</span>
                   <input type="text" placeholder="연봉 (단위: 원)" value={playerSalary} onChange={e => {
                     const val = e.target.value.replace(/[^0-9]/g, '');
@@ -242,19 +257,15 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
                   }} required />
                 </div>
                 <div className="input-group">
-                  <span className="material-icons-round">shield</span>
-                  <select value={playerTeam} onChange={e => setPlayerTeam(e.target.value)} required style={{ width: '100%', background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '14px 14px 14px 44px', color: '#fff', fontSize: '14px', outline: 'none', appearance: 'none' }}>
-                    <option value="" disabled>소속구단 선택</option>
-                    <option value="KIA 타이거즈" className="text-black">KIA 타이거즈</option>
-                    <option value="삼성 라이온즈" className="text-black">삼성 라이온즈</option>
-                    <option value="LG 트윈스" className="text-black">LG 트윈스</option>
-                    <option value="두산 베어스" className="text-black">두산 베어스</option>
-                    <option value="KT 위즈" className="text-black">KT 위즈</option>
-                    <option value="SSG 랜더스" className="text-black">SSG 랜더스</option>
-                    <option value="롯데 자이언츠" className="text-black">롯데 자이언츠</option>
-                    <option value="한화 이글스" className="text-black">한화 이글스</option>
-                    <option value="NC 다이노스" className="text-black">NC 다이노스</option>
-                    <option value="키움 히어로즈" className="text-black">키움 히어로즈</option>
+                  <span className="material-icons-round">front_hand</span>
+                  <select value={playerHandedness} onChange={e => setPlayerHandedness(e.target.value)} required style={{ appearance: 'none' }}>
+                    <option value="" disabled>투타 선택</option>
+                    <option value="우투우타" className="text-black">우투우타</option>
+                    <option value="우투좌타" className="text-black">우투좌타</option>
+                    <option value="우투양타" className="text-black">우투양타 (스위치)</option>
+                    <option value="좌투좌타" className="text-black">좌투좌타</option>
+                    <option value="좌투우타" className="text-black">좌투우타</option>
+                    <option value="좌투양타" className="text-black">좌투양타 (스위치)</option>
                   </select>
                 </div>
               </>
@@ -267,7 +278,7 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: any) => void }
               </div>
             )}
 
-            <button onClick={handleRegister} className="btn-primary" disabled={isLoading}>
+            <button onClick={handleRegister} className="btn-primary !h-[30px] !py-0 text-[13px]" disabled={isLoading}>
               {isLoading ? '처리 중...' : '회원가입 및 시작'}
             </button>
             <p className="auth-toggle-text">이미 계정이 있으신가요? <span onClick={() => { setIsLoginMode(true); setErrorMsg(''); }}>로그인</span></p>
