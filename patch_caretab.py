@@ -3,96 +3,53 @@ import re
 with open('src/components/CareTab.tsx', 'r', encoding='utf-8') as f:
     content = f.read()
 
-marker = """    const prevChronic = player?.acwrChartData?.chronic?.[3] ?? 1;
-    let newAcwr = "0.0";
-    if (prevChronic > 0) {
-      newAcwr = (curAcute / prevChronic).toFixed(2);
-    }
+# Issue 1: Grip Strength chart bars and labels
+content = content.replace('barGap={4}', 'barGap={2}')
+content = content.replace('barCategoryGap="40%"', 'barCategoryGap="20%"')
+content = content.replace('maxBarSize={10}', 'maxBarSize={16}')
 
-    let p = JSON.parse(JSON.stringify(player));
-    if (!p.acwrChartData) p.acwrChartData = { acute: [0,0,0,0], chronic: [1,1,1,1], acwr: [0,0,0,0] };
-    if (!p.gripChartData) p.gripChartData = { labels: [], values: [], leftValues: [], rightValues: [] };
-    if (!p.gripChartData.labels) p.gripChartData.labels = [];
-    if (!p.gripChartData.values) p.gripChartData.values = [];
-    if (!p.gripChartData.leftValues) p.gripChartData.leftValues = [...p.gripChartData.values];
-    if (!p.gripChartData.rightValues) p.gripChartData.rightValues = [...p.gripChartData.values];
+content = content.replace('fontSize={12} fontWeight="bold" textAnchor="middle">\n                          좌', 'fontSize={10} fontWeight="bold" textAnchor="middle">\n                          좌')
+content = content.replace('fontSize={12} fontWeight="bold" textAnchor="middle">\n                          {value}', 'fontSize={11} fontWeight="bold" textAnchor="middle">\n                          {value}')
+content = content.replace('fontSize={12} fontWeight="bold" textAnchor="middle">\n                          우', 'fontSize={10} fontWeight="bold" textAnchor="middle">\n                          우')
 
-    p.acwrChartData.acute[3] = curAcute;
-    p.acwrChartData.acwr[3] = parseFloat(newAcwr);
+# Issue 2: Sleep Pattern title and button layout
+sleep_header_marker = """        <div className="chart-header flex justify-between items-center mb-4">
+          <h4 style={{ marginBottom: 0 }}>최근 7일 수면 패턴 (Sleep Trend)</h4>
+          <button 
+            onClick={() => setShowPastSleepModal(true)}"""
 
-    if (!p.metrics) p.metrics = {};
-    p.metrics.rpe = logRpe; 
-    p.metrics.gripRaw = overallGrip;
-    p.metrics.grip = parseFloat(dev);
-    p.metrics.acwr = parseFloat(newAcwr);
-    p.metrics.sleep = sleepDuration;
-    if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-    else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
-    else p.status = "normal";
+sleep_header_replacement = """        <div className="chart-header flex flex-col items-start gap-2 mb-4">
+          <h4 style={{ marginBottom: 0 }}>최근 7일 수면 패턴 (Sleep Trend)</h4>
+          <button 
+            onClick={() => setShowPastSleepModal(true)}"""
 
-    const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    const dateStr = `${month}/${d}`;
+content = content.replace(sleep_header_marker, sleep_header_replacement)
 
+# Issue 3: Past sleep pattern modal whitespace
+sleep_modal_marker = """                            <div className="flex flex-col text-right">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">총 수면</span>
+                              <span className="text-[15px] font-bold text-white">{item.duration} 시간</span>
+                            </div>"""
 
-    p.schedules = p.schedules || [];
-    
-    const existingIndex = p.schedules.findIndex((s: any) => s.date === dateStr && s.title === '[컨디셔닝] 당일 지표 측정');
-    if (existingIndex !== -1) {
-      p.schedules[existingIndex].acwr = parseFloat(newAcwr);
-      p.schedules[existingIndex].grip = overallGrip;
-      p.schedules[existingIndex].gripLeft = gl;
-      p.schedules[existingIndex].gripRight = gr;
-      p.schedules[existingIndex].sleep = sleepDuration;
-      p.schedules[existingIndex].sleepStart = sleepStart;
-      p.schedules[existingIndex].sleepEnd = sleepEnd;
-      p.schedules[existingIndex].rpe = Number(logRpe) || 0;
-      p.schedules[existingIndex].duration = logDurationNum;
-    } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', acwr: parseFloat(newAcwr), grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: Number(logRpe) || 0, duration: logDurationNum });
-    }
+sleep_modal_replacement = """                            <div className="flex flex-col text-right">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5 whitespace-nowrap">총 수면</span>
+                              <span className="text-[15px] font-bold text-white whitespace-nowrap">{item.duration} 시간</span>
+                            </div>"""
 
-    p = rebuildChartsFromSchedules(p);"""
+content = content.replace(sleep_modal_marker, sleep_modal_replacement)
 
-replacement = """    let p = JSON.parse(JSON.stringify(player));
-    if (!p.metrics) p.metrics = {};
-    p.metrics.rpe = logRpe; 
-    p.metrics.gripRaw = overallGrip;
-    p.metrics.grip = parseFloat(dev);
-    p.metrics.sleep = sleepDuration;
+sleep_modal_marker2 = """                            <div className="flex flex-col text-left border-r border-[rgba(255,255,255,0.1)] pr-4">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">취침 - 기상</span>
+                              <span className="text-[14px] font-medium text-gray-300">{item.sleepStart} ~ {item.sleepEnd}</span>
+                            </div>"""
 
-    const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    const dateStr = `${month}/${d}`;
+sleep_modal_replacement2 = """                            <div className="flex flex-col text-left border-r border-[rgba(255,255,255,0.1)] pr-4 shrink-0">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5 whitespace-nowrap">취침 - 기상</span>
+                              <span className="text-[14px] font-medium text-gray-300 whitespace-nowrap">{item.sleepStart} ~ {item.sleepEnd}</span>
+                            </div>"""
 
-    p.schedules = p.schedules || [];
-    
-    const existingIndex = p.schedules.findIndex((s: any) => s.date === dateStr && s.title === '[컨디셔닝] 당일 지표 측정');
-    if (existingIndex !== -1) {
-      p.schedules[existingIndex].grip = overallGrip;
-      p.schedules[existingIndex].gripLeft = gl;
-      p.schedules[existingIndex].gripRight = gr;
-      p.schedules[existingIndex].sleep = sleepDuration;
-      p.schedules[existingIndex].sleepStart = sleepStart;
-      p.schedules[existingIndex].sleepEnd = sleepEnd;
-      p.schedules[existingIndex].rpe = Number(logRpe) || 0;
-      p.schedules[existingIndex].duration = logDurationNum;
-    } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: Number(logRpe) || 0, duration: logDurationNum });
-    }
+content = content.replace(sleep_modal_marker2, sleep_modal_replacement2)
 
-    p = rebuildChartsFromSchedules(p);
-    
-    if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-    else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
-    else p.status = "normal";"""
-
-if marker in content:
-    content = content.replace(marker, replacement)
-else:
-    print("Warning: marker not found in CareTab!")
 
 with open('src/components/CareTab.tsx', 'w', encoding='utf-8') as f:
     f.write(content)

@@ -379,13 +379,13 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                           </div>
                         ) : (
                           <div className="flex gap-4">
-                            <div className="flex flex-col text-left border-r border-[rgba(255,255,255,0.1)] pr-4">
-                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">취침 - 기상</span>
-                              <span className="text-[14px] font-medium text-gray-300">{item.sleepStart} ~ {item.sleepEnd}</span>
+                            <div className="flex flex-col text-left border-r border-[rgba(255,255,255,0.1)] pr-4 shrink-0">
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5 whitespace-nowrap">취침 - 기상</span>
+                              <span className="text-[14px] font-medium text-gray-300 whitespace-nowrap">{item.sleepStart} ~ {item.sleepEnd}</span>
                             </div>
                             <div className="flex flex-col text-right">
-                              <span className="text-[12px] text-gray-500 font-bold mb-0.5">총 수면</span>
-                              <span className="text-[15px] font-bold text-white">{item.duration} 시간</span>
+                              <span className="text-[12px] text-gray-500 font-bold mb-0.5 whitespace-nowrap">총 수면</span>
+                              <span className="text-[15px] font-bold text-white whitespace-nowrap">{item.duration} 시간</span>
                             </div>
                           </div>
                         )}
@@ -783,8 +783,8 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 right: player?.gripChartData?.rightValues?.[idx] || player?.gripChartData?.values?.[idx] || 0
               })) || []}
               margin={{ top: 30, right: 10, left: -25, bottom: 0 }}
-              barGap={4}
-              barCategoryGap="40%"
+              barGap={2}
+              barCategoryGap="20%"
             >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="name" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
@@ -797,7 +797,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 dx={-10} 
                 width={30}
               />
-              <Bar dataKey="left" radius={[4, 4, 4, 4]} maxBarSize={10}>
+              <Bar dataKey="left" radius={[4, 4, 4, 4]} maxBarSize={16}>
                 {
                   (player?.gripChartData?.labels || []).map((label: string, index: number) => {
                     const isToday = label === "오늘";
@@ -816,10 +816,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                     const isToday = player?.gripChartData?.labels?.[index] === "오늘";
                     return (
                       <g>
-                        <text x={x + width / 2} y={y - 22} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                        <text x={x + width / 2 - 2} y={y - 18} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={10} fontWeight="bold" textAnchor="middle">
                           좌
                         </text>
-                        <text x={x + width / 2} y={y - 8} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                        <text x={x + width / 2 - 2} y={y - 6} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={11} fontWeight="bold" textAnchor="middle">
                           {value}
                         </text>
                       </g>
@@ -827,7 +827,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                   }}
                 />
               </Bar>
-              <Bar dataKey="right" radius={[4, 4, 4, 4]} maxBarSize={10}>
+              <Bar dataKey="right" radius={[4, 4, 4, 4]} maxBarSize={16}>
                 {
                   (player?.gripChartData?.labels || []).map((label: string, index: number) => {
                     const isToday = label === "오늘";
@@ -846,10 +846,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                     const isToday = player?.gripChartData?.labels?.[index] === "오늘";
                     return (
                       <g>
-                        <text x={x + width / 2} y={y - 22} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                        <text x={x + width / 2 + 2} y={y - 18} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={10} fontWeight="bold" textAnchor="middle">
                           우
                         </text>
-                        <text x={x + width / 2} y={y - 8} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={12} fontWeight="bold" textAnchor="middle">
+                        <text x={x + width / 2 + 2} y={y - 6} fill={isToday ? "#FFFFFF" : "#9CA3AF"} fontSize={11} fontWeight="bold" textAnchor="middle">
                           {value}
                         </text>
                       </g>
@@ -863,7 +863,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       </div>
 
       <div className="card-chart">
-        <div className="chart-header flex justify-between items-center mb-4">
+        <div className="chart-header flex flex-col items-start gap-2 mb-4">
           <h4 style={{ marginBottom: 0 }}>최근 7일 수면 패턴 (Sleep Trend)</h4>
           <button 
             onClick={() => setShowPastSleepModal(true)}

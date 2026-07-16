@@ -534,7 +534,10 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
           <button 
             onClick={() => {
               setEditingEventOriginalIndex(null);
-              setNewEventDate('');
+              
+              const today = new Date();
+              const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+              setNewEventDate(localDate);
               setNewEventTitle('');
               setNewEventPlace('');
               setNewEventTime('');

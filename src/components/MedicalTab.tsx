@@ -379,13 +379,22 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
 
   const confirmCompleteTreatment = () => {
     if (confirmModal.id) {
-      setPainData(prev => ({
-        ...prev,
-        [confirmModal.id as string]: {
-          ...prev[confirmModal.id as string],
+      const idStr = confirmModal.id as string;
+      const nextPainData = {
+        ...painData,
+        [idStr]: {
+          ...painData[idStr],
           isPast: true
         }
-      }));
+      };
+      setPainData(nextPainData);
+      
+      if (onUpdatePlayer && player) {
+        onUpdatePlayer({
+          ...player,
+          painData: nextPainData
+        });
+      }
     }
     setConfirmModal({ isOpen: false, id: null });
   };
