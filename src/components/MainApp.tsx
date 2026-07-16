@@ -268,7 +268,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       p.handedness
     ].filter(Boolean);
     return (
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[var(--text-muted)] mt-0.5">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-[var(--text-muted)] mt-0.5 mb-1">
         {parts.map((part, i) => (
           <React.Fragment key={i}>
             <span className="whitespace-nowrap">{part}</span>
@@ -330,9 +330,9 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
             </div>
             <div className="summary-info">
               <h2>{p.name}</h2>
-              <p className="text-xs text-[var(--text-muted)] mb-1">{formatPlayerAge(p)}</p>
+              <p className="text-[13px] text-[var(--text-muted)] mb-1">{formatPlayerAge(p)}</p>
               {renderPlayerDetails(p)}
-              <div className="player-badges mt-2">
+              <div className="player-badges mt-[24px]">
                 <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
                   <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
                   {statusInfo.badgeText}
@@ -409,9 +409,9 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
                 </div>
                 <div className="summary-info">
                   <h2>{activePlayer.name}</h2>
-                  <p className="text-xs text-[var(--text-muted)] mb-1">{formatPlayerAge(activePlayer)}</p>
+                  <p className="text-[13px] text-[var(--text-muted)] mb-1">{formatPlayerAge(activePlayer)}</p>
                   {renderPlayerDetails(activePlayer)}
-                  <div className="player-badges mt-2">
+                  <div className="player-badges mt-[24px]">
                     <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-bold leading-none border ${statusInfo.badgeColor} ${statusInfo.borderColor}`}>
                       <span className="material-icons-round !text-[14px]">{statusInfo.icon}</span>
                       {statusInfo.badgeText}

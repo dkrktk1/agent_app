@@ -11,6 +11,8 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
   const [invName, setInvName] = useState('');
   const [invQty, setInvQty] = useState('');
   const [invPrice, setInvPrice] = useState<string>('');
+  const [invCompany, setInvCompany] = useState('');
+  const [invNote, setInvNote] = useState('');
 
   const [isSponsorshipModalOpen, setIsSponsorshipModalOpen] = useState(false);
   const [editingSponsorshipIndex, setEditingSponsorshipIndex] = useState<number | null>(null);
@@ -22,6 +24,9 @@ export default function BizTab({ player, isAgent, onUpdatePlayer }: { player: an
   const [sponsName, setSponsName] = useState('');
   const [sponsQty, setSponsQty] = useState('');
   const [sponsPrice, setSponsPrice] = useState<string>('');
+  const [sponsNote, setSponsNote] = useState('');
+  const [showInvDeleteConfirm, setShowInvDeleteConfirm] = useState(false);
+  const [showSponsDeleteConfirm, setShowSponsDeleteConfirm] = useState(false);
 
   const [isBudgetEditing, setIsBudgetEditing] = useState(false);
   const [budgetVal, setBudgetVal] = useState<string>(player.budget ? Number(player.budget).toLocaleString() : '');
@@ -191,19 +196,24 @@ ${proposalPoint}
       setInvName(player.inventory[index].name);
       setInvQty(player.inventory[index].qty);
       setInvPrice(player.inventory[index].price ? Number(player.inventory[index].price).toLocaleString() : '');
+      setInvCompany(player.inventory[index].company || '');
+      setInvNote(player.inventory[index].note || '');
     } else {
       setInvDate(new Date().toISOString().split('T')[0]);
       setInvName('');
       setInvQty('');
       setInvPrice('');
+      setInvCompany('');
+      setInvNote('');
     }
+    setShowInvDeleteConfirm(false);
     setIsInventoryModalOpen(true);
   };
 
   const saveInventoryItem = () => {
     const p = JSON.parse(JSON.stringify(player));
     if (!p.inventory) p.inventory = [];
-    const newItem = { date: invDate, name: invName, qty: invQty, price: Number(String(invPrice).replace(/[^0-9]/g, '')) || 0 };
+    const newItem = { date: invDate, name: invName, qty: invQty, price: Number(String(invPrice).replace(/[^0-9]/g, '')) || 0, company: invCompany, note: invNote };
     if (editingInventoryIndex !== null) {
       p.inventory[editingInventoryIndex] = newItem;
     } else {
@@ -219,6 +229,7 @@ ${proposalPoint}
     p.inventory.splice(editingInventoryIndex, 1);
     onUpdatePlayer(p);
     setIsInventoryModalOpen(false);
+    setShowInvDeleteConfirm(false);
   };
 
   const handleOpenSponsorshipModal = (index: number | null) => {
@@ -230,20 +241,23 @@ ${proposalPoint}
       setSponsName(player.sponsorshipItems[index].name);
       setSponsQty(player.sponsorshipItems[index].qty);
       setSponsPrice(player.sponsorshipItems[index].price ? Number(player.sponsorshipItems[index].price).toLocaleString() : '');
+      setSponsNote(player.sponsorshipItems[index].note || '');
     } else {
       setSponsDate(new Date().toISOString().split('T')[0]);
       setSponsCompany('');
       setSponsName('');
       setSponsQty('');
       setSponsPrice('');
+      setSponsNote('');
     }
+    setShowSponsDeleteConfirm(false);
     setIsSponsorshipModalOpen(true);
   };
 
   const saveSponsorshipItem = () => {
     const p = JSON.parse(JSON.stringify(player));
     if (!p.sponsorshipItems) p.sponsorshipItems = [];
-    const newItem = { date: sponsDate, company: sponsCompany, name: sponsName, qty: sponsQty, price: sponsPrice };
+    const newItem = { date: sponsDate, company: sponsCompany, name: sponsName, qty: sponsQty, price: sponsPrice, note: sponsNote };
     if (editingSponsorshipIndex !== null) {
       p.sponsorshipItems[editingSponsorshipIndex] = newItem;
     } else {
@@ -259,6 +273,7 @@ ${proposalPoint}
     p.sponsorshipItems.splice(editingSponsorshipIndex, 1);
     onUpdatePlayer(p);
     setIsSponsorshipModalOpen(false);
+    setShowSponsDeleteConfirm(false);
   };
 
   const usedAmount = player.inventory?.reduce((acc: number, cur: any) => acc + (Number(String(cur.price || 0).replace(/[^0-9]/g, '')) || 0), 0) || 0;
@@ -305,10 +320,12 @@ ${proposalPoint}
                     key={i} 
                     onClick={() => handleOpenInventoryModal(i)}
                   >
-                    <div className="flex items-start gap-2 mb-2">
-                      {inv.date && <span className="text-[10px] bg-[rgba(255,255,255,0.1)] text-gray-300 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 whitespace-nowrap">{inv.date}</span>}
+                    <div className="flex items-start gap-2 mb-2 flex-wrap">
+                      {inv.date && <span className="text-[13px] bg-[rgba(255,255,255,0.1)] text-gray-300 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 whitespace-nowrap">{inv.date}</span>}
+                      {inv.company && <span className="text-[13px] bg-[rgba(212,175,55,0.1)] text-[var(--primary-color)] border border-[rgba(212,175,55,0.3)] px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 whitespace-nowrap">{inv.company}</span>}
                       <span className="text-white font-medium break-keep">{inv.name}</span>
                     </div>
+                    {inv.note && <div className="text-xs text-gray-400 mb-2">{inv.note}</div>}
                     <div className="flex justify-between items-center w-full">
                       <span className="text-[var(--text-muted)] text-sm whitespace-nowrap">수량: {inv.qty}</span>
                       <strong className="text-[var(--primary-color)] font-bold text-lg whitespace-nowrap">
@@ -381,11 +398,12 @@ ${proposalPoint}
                     onClick={() => handleOpenSponsorshipModal(i)}
                   >
                     <div className="flex items-start gap-2 mb-2">
-                      {spons.date && <span className="text-[10px] bg-[rgba(255,255,255,0.1)] text-gray-300 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 whitespace-nowrap">{spons.date}</span>}
+                      {spons.date && <span className="text-[13px] bg-[rgba(255,255,255,0.1)] text-gray-300 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 whitespace-nowrap">{spons.date}</span>}
                       <span className="text-white font-medium break-keep">
                         {spons.company ? `[${spons.company}] ` : ''}{spons.name}
                       </span>
                     </div>
+                    {spons.note && <div className="text-xs text-gray-400 mb-2">{spons.note}</div>}
                     <div className="flex justify-between items-center w-full">
                       <span className="text-[var(--text-muted)] text-sm whitespace-nowrap">상세/기간: {spons.qty}</span>
                       <strong className="text-[var(--primary-color)] font-bold text-lg whitespace-nowrap">
@@ -513,6 +531,10 @@ ${proposalPoint}
                 <input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} max="9999-12-31" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" />
               </div>
               <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">업체명</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 나이키" value={invCompany} onChange={e => setInvCompany(e.target.value)} />
+              </div>
+              <div>
                 <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">품명</label>
                 <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="예: 스파이크, 글러브" value={invName} onChange={e => setInvName(e.target.value)} />
               </div>
@@ -527,10 +549,14 @@ ${proposalPoint}
                   setInvPrice(val === '' ? '' : Number(val).toLocaleString());
                 }} />
               </div>
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">비고</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="비고 입력" value={invNote} onChange={e => setInvNote(e.target.value)} />
+              </div>
             </div>
             <div className="flex gap-3" style={{ marginTop: "12px" }}>
               {editingInventoryIndex !== null && (
-                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteInventoryItem}>삭제</button>
+                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={() => setShowInvDeleteConfirm(true)}>삭제</button>
               )}
               <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] font-bold rounded-xl hover:opacity-90 transition-opacity h-[30px] flex items-center justify-center text-[14px]" onClick={saveInventoryItem}>저장</button>
             </div>
@@ -571,12 +597,42 @@ ${proposalPoint}
                   setSponsPrice(val === '' ? '' : Number(val).toLocaleString());
                 }} />
               </div>
+              <div>
+                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">비고</label>
+                <input type="text" className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors" placeholder="비고 입력" value={sponsNote} onChange={e => setSponsNote(e.target.value)} />
+              </div>
             </div>
             <div className="flex gap-3" style={{ marginTop: "12px" }}>
               {editingSponsorshipIndex !== null && (
-                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteSponsorshipItem}>삭제</button>
+                <button className="flex-1 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={() => setShowSponsDeleteConfirm(true)}>삭제</button>
               )}
               <button className="flex-1 bg-[var(--primary-color)] text-[var(--bg-color)] font-bold rounded-xl hover:opacity-90 transition-opacity h-[30px] flex items-center justify-center text-[14px]" onClick={saveSponsorshipItem}>저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInvDeleteConfirm && (
+        <div className="fixed inset-0 z-[3000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center" onClick={() => setShowInvDeleteConfirm(false)}>
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] border border-[var(--card-border)] flex flex-col p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="text-white text-lg font-bold mb-2">삭제 확인</div>
+            <div className="text-gray-400 text-sm mb-6">정말로 삭제하시겠습니까?<br />이 작업은 되돌릴 수 없습니다.</div>
+            <div className="flex gap-2 w-full">
+              <button className="flex-1 bg-[rgba(255,255,255,0.1)] text-white font-bold rounded-xl hover:bg-[rgba(255,255,255,0.2)] transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={() => setShowInvDeleteConfirm(false)}>취소</button>
+              <button className="flex-1 bg-[#FF3B30] text-white font-bold rounded-xl hover:bg-[#FF453A] transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteInventoryItem}>삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSponsDeleteConfirm && (
+        <div className="fixed inset-0 z-[3000] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center" onClick={() => setShowSponsDeleteConfirm(false)}>
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] border border-[var(--card-border)] flex flex-col p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="text-white text-lg font-bold mb-2">삭제 확인</div>
+            <div className="text-gray-400 text-sm mb-6">정말로 삭제하시겠습니까?<br />이 작업은 되돌릴 수 없습니다.</div>
+            <div className="flex gap-2 w-full">
+              <button className="flex-1 bg-[rgba(255,255,255,0.1)] text-white font-bold rounded-xl hover:bg-[rgba(255,255,255,0.2)] transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={() => setShowSponsDeleteConfirm(false)}>취소</button>
+              <button className="flex-1 bg-[#FF3B30] text-white font-bold rounded-xl hover:bg-[#FF453A] transition-colors h-[30px] flex items-center justify-center text-[14px]" onClick={deleteSponsorshipItem}>삭제</button>
             </div>
           </div>
         </div>
@@ -584,3 +640,4 @@ ${proposalPoint}
     </div>
   );
 }
+

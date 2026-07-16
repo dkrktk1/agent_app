@@ -635,14 +635,14 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">변화율</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">변화율</span>
                   <span className={`text-xl sm:text-2xl font-black ${leftStatus.colorClass} text-right`}>
                     {isLeftEmpty ? '-' : `${leftChange > 0 ? '+' : ''}${leftChange.toFixed(1)}%`}
                   </span>
                 </div>
                 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
                   <div className="flex items-baseline justify-end whitespace-nowrap shrink-0">
                     <input 
                       type="number" 
@@ -667,9 +667,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 </div>
 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <span className="text-right text-[10px] sm:text-sm text-white font-bold">{gripLeftBaseline === 0 ? '-' : gripLeftBaseline}</span>
+                    <span className="text-right text-[13px] text-white font-bold">{gripLeftBaseline === 0 ? '-' : gripLeftBaseline}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>
@@ -685,14 +685,14 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">변화율</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">변화율</span>
                   <span className={`text-xl sm:text-2xl font-black ${rightStatus.colorClass} text-right`}>
                     {isRightEmpty ? '-' : `${rightChange > 0 ? '+' : ''}${rightChange.toFixed(1)}%`}
                   </span>
                 </div>
                 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
                   <div className="flex items-baseline justify-end whitespace-nowrap shrink-0">
                     <input 
                       type="number" 
@@ -717,9 +717,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 </div>
 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[10px] sm:text-xs text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <span className="text-right text-[10px] sm:text-sm text-white font-bold">{gripRightBaseline === 0 ? '-' : gripRightBaseline}</span>
+                    <span className="text-right text-[13px] text-white font-bold">{gripRightBaseline === 0 ? '-' : gripRightBaseline}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>

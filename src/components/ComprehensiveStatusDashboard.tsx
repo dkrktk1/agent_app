@@ -134,14 +134,14 @@ export default function ComprehensiveStatusDashboard({
 
       <div className="flex flex-col gap-5">
         {/* Top: Square Badge & Briefing */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-[5px]">
           <div className={`flex flex-col items-center justify-center w-full py-6 rounded-lg border-2 ${borderColor} ${badgeColor} shadow-lg`}>
             <span className="material-icons-round text-4xl mb-2">{icon}</span>
             <span className="text-xl font-black">{badgeText}</span>
           </div>
           <div>
             <h4 className="text-white font-bold text-sm text-center mb-2">종합 피로도 및 컨디션 분석</h4>
-            <p className="text-gray-300 leading-relaxed text-sm">
+            <p className="text-gray-300 leading-relaxed text-[13px]">
               {briefing}
             </p>
           </div>
@@ -150,24 +150,24 @@ export default function ComprehensiveStatusDashboard({
         {/* Middle: 3-Split Card */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <div className="bg-black/30 border border-white/5 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center gap-1 sm:gap-2">
-            <span className="text-[10px] sm:text-xs text-gray-400 font-medium text-center">{loadStatus.label}</span>
+            <span className="text-[13px] text-gray-400 font-medium text-center">{loadStatus.label}</span>
             <div className="flex items-center gap-1 sm:gap-1.5">
               <span className={`material-icons-round text-[14px] sm:text-[18px] ${loadStatus.color}`}>{loadStatus.icon}</span>
-              <span className={`text-[11px] sm:text-sm font-bold ${loadStatus.color}`}>{loadStatus.status}</span>
+              <span className={`text-[13px] font-bold ${loadStatus.color}`}>{loadStatus.status}</span>
             </div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center gap-1 sm:gap-2">
-            <span className="text-[10px] sm:text-xs text-gray-400 font-medium text-center">{recoveryStatus.label}</span>
+            <span className="text-[13px] text-gray-400 font-medium text-center">{recoveryStatus.label}</span>
             <div className="flex items-center gap-1 sm:gap-1.5">
               <span className={`material-icons-round text-[14px] sm:text-[18px] ${recoveryStatus.color}`}>{recoveryStatus.icon}</span>
-              <span className={`text-[11px] sm:text-sm font-bold ${recoveryStatus.color}`}>{recoveryStatus.status}</span>
+              <span className={`text-[13px] font-bold ${recoveryStatus.color}`}>{recoveryStatus.status}</span>
             </div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center gap-1 sm:gap-2">
-            <span className="text-[10px] sm:text-xs text-gray-400 font-medium text-center">{nerveStatus.label}</span>
+            <span className="text-[13px] text-gray-400 font-medium text-center">{nerveStatus.label}</span>
             <div className="flex items-center gap-1 sm:gap-1.5">
               <span className={`material-icons-round text-[14px] sm:text-[18px] ${nerveStatus.color}`}>{nerveStatus.icon}</span>
-              <span className={`text-[11px] sm:text-sm font-bold ${nerveStatus.color}`}>{nerveStatus.status}</span>
+              <span className={`text-[13px] font-bold ${nerveStatus.color}`}>{nerveStatus.status}</span>
             </div>
           </div>
         </div>
