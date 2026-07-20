@@ -250,7 +250,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
         grip: parseFloat(grip.toFixed(1)),
         gripLeft: gripLeft,
         gripRight: gripRight,
-        sleep: parseFloat(sleep.toFixed(1)),
+        sleep: parseFloat(sleep.toFixed(2)),
         sleepStart: '23:00',
         sleepEnd: '07:00'
       });

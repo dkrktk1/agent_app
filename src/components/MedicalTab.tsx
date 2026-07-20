@@ -886,7 +886,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
           
           {/* Top: Interactive Body Map */}
           <div className="flex flex-col">
-            <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }} panning={{ disabled: true }}>
+            <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }} panning={{ disabled: false }}>
               <TransformComponent wrapperStyle={{ width: '100%' }} contentStyle={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <div className="flex justify-center gap-16 md:gap-24 items-start relative mb-8 w-full max-w-lg mx-auto" style={{ touchAction: 'none' }}>
                   {/* Front Silhouette */}
@@ -957,7 +957,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                               </span>
                             </div>
                           )}
-                          <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }} panning={{ disabled: true }}>
+                          <TransformWrapper disabled={!isMobile} centerZoomedOut centerOnInit initialScale={1} minScale={0.5} maxScale={4} wheel={{ step: 0.1 }} panning={{ disabled: false }}>
                             <TransformComponent wrapperStyle={{ width: '100%' }} contentStyle={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                               <div className="flex justify-center gap-4 sm:gap-12 w-full max-w-lg mx-auto" style={{ touchAction: 'none' }}>
                                 <div className="flex flex-col items-center">

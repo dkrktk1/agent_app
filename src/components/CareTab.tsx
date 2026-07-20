@@ -422,7 +422,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       let startMin = h1 * 60 + m1;
       let endMin = h2 * 60 + m2;
       if (endMin < startMin) endMin += 24 * 60;
-      sleepDuration = Number(((endMin - startMin) / 60).toFixed(1));
+      sleepDuration = Number(((endMin - startMin) / 60).toFixed(2));
     }
 
     let p = JSON.parse(JSON.stringify(player));
@@ -608,7 +608,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
           </div>
           <div className="flex flex-col items-center justify-center">
             <div className={`text-3xl md:text-4xl font-black leading-none text-center mb-2 ${sleepStatusColor}`}>
-              {isSleepEmpty ? '-' : `${latestSleep}h`}
+              {isSleepEmpty ? '-' : `${Number(latestSleep).toFixed(1)}h`}
             </div>
             {avgSleep !== null && (
               <div className="text-xs md:text-sm text-[var(--text-muted)] font-medium mt-5">

@@ -159,7 +159,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
          const [endH, endM] = sleepEnd.split(':').map(Number);
          let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
          if (durationMins < 0) durationMins += 24 * 60;
-         sleepDuration = Number((durationMins / 60).toFixed(1));
+         sleepDuration = Number((durationMins / 60).toFixed(2));
        }
        
        gripLeft = gl;
@@ -176,7 +176,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
       const [endH, endM] = sleepEnd.split(':').map(Number);
       let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
       if (durationMins < 0) durationMins += 24 * 60;
-      sleep = Number((durationMins / 60).toFixed(1));
+      sleep = Number((durationMins / 60).toFixed(2));
     }
 
     const newEvent: any = { date: formattedDate, title, place, time, details, acwr, grip, gripLeft, gripRight };
