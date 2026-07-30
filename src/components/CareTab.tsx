@@ -17,6 +17,17 @@ import { downloadSampleCSV, rebuildChartsFromSchedules } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
 import { useModalHistory } from '../hooks/useModalHistory';
 
+const getRpeText = (rpe: number | string) => {
+  const r = Number(rpe);
+  if (r === 10) return '최대 노력';
+  if (r === 9) return '매우 힘듦';
+  if (r >= 7) return '격렬함';
+  if (r >= 4) return '적당함';
+  if (r >= 2) return '가벼움';
+  if (r === 1) return '매우 가벼움';
+  return '';
+};
+
 const getAcwrColor = (value: number) => {
   if (value >= 1.5) return '#ef4444';
   if (value >= 1.3) return '#facc15';
@@ -231,8 +242,12 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   useModalHistory(showPastAcwrModal, () => setShowPastAcwrModal(false));
 
   
-  const [logRpe, setLogRpe] = useState(7);
-  const [logDuration, setLogDuration] = useState<number | string>('');
+  const [trainingSessions, setTrainingSessions] = useState<any[]>([
+    { id: 'match', name: '경기', duration: '', rpe: '', isFixed: true },
+    { id: 'weight', name: '웨이트 트레이닝', duration: '', rpe: '', isFixed: true },
+    { id: 'skill', name: '기술 훈련', duration: '', rpe: '', isFixed: true }
+  ]);
+  
   const [logGrip, setLogGrip] = useState<number | string>(player?.metrics?.gripRaw ?? 0);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
@@ -412,8 +427,20 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     const overallGrip = (gl + gr) / 2;
 
     const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
-    const logDurationNum = Number(logDuration) || 0;
-    const curAcute = logRpe * logDurationNum;
+    
+    let totalDuration = 0;
+    let totalLoad = 0;
+    trainingSessions.forEach(session => {
+      const d = Number(session.duration) || 0;
+      const r = Number(session.rpe) || 0;
+      if (d > 0 && r > 0) {
+        totalDuration += d;
+        totalLoad += (d * r);
+      }
+    });
+    
+    const logDurationNum = totalDuration;
+    const logRpe = totalDuration > 0 ? (totalLoad / totalDuration) : 0;
     
     const [h1, m1] = sleepStart.split(':').map(Number);
     const [h2, m2] = sleepEnd.split(':').map(Number);
@@ -442,10 +469,11 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       p.schedules[existingIndex].sleep = sleepDuration;
       p.schedules[existingIndex].sleepStart = sleepStart;
       p.schedules[existingIndex].sleepEnd = sleepEnd;
-      p.schedules[existingIndex].rpe = Number(logRpe) || 0;
+      p.schedules[existingIndex].rpe = logRpe;
       p.schedules[existingIndex].duration = logDurationNum;
+      p.schedules[existingIndex].sessions = trainingSessions;
     } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: Number(logRpe) || 0, duration: logDurationNum });
+      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: logRpe, duration: logDurationNum, sessions: trainingSessions });
     }
 
     p = rebuildChartsFromSchedules(p);
@@ -539,15 +567,30 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
           const dateStr = `${month}/${d}`;
           const existing = player?.schedules?.find((s: any) => s.date === dateStr && s.title === '[컨디셔닝] 당일 지표 측정');
           if (existing) {
-             setLogRpe(existing.rpe || 7);
-             setLogDuration(existing.duration || '');
+             if (existing.sessions && Array.isArray(existing.sessions)) {
+                 setTrainingSessions(existing.sessions);
+             } else {
+                 const d = existing.duration || '';
+                 const r = existing.rpe || '';
+                 if (d || r) {
+                    setTrainingSessions([
+                      { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
+                      { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
+                      { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true },
+                      { id: 'legacy', name: '기존 기록', duration: d, rpe: r, isFixed: false }
+                    ]);
+                 }
+             }
              setLogGripLeft(existing.gripLeft || '');
              setLogGripRight(existing.gripRight || '');
              if (existing.sleepStart) setSleepStart(existing.sleepStart);
              if (existing.sleepEnd) setSleepEnd(existing.sleepEnd);
           } else {
-             setLogRpe(7);
-             setLogDuration('');
+             setTrainingSessions([
+                { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
+                { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
+                { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true }
+             ]);
              setLogGripLeft('');
              setLogGripRight('');
              setSleepStart('23:00');
@@ -914,53 +957,112 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               <span className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors" onClick={() => setIsDailyLogOpen(false)}>close</span>
             </div>
             <div className="p-6 overflow-y-auto flex flex-col gap-[12px]">
-              <div>
-                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">인지된 훈련 강도(힘듦)</label>
-                <div className="text-center mb-4 text-xs font-bold transition-colors duration-150" style={{ color: logRpe <= 2 ? '#3b82f6' : logRpe <= 4 ? '#10b981' : logRpe <= 6 ? '#eab308' : logRpe <= 8 ? '#f97316' : '#ef4444' }}>
-                  {logRpe} - {rpeLabels[logRpe]}
+                            <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[13px] font-bold text-white">일일 훈련 부하 (ACWR)</label>
+                  <span className="text-[11px] text-[var(--primary-color)]">
+                    총 부하량: {trainingSessions.reduce((acc, s) => acc + ((Number(s.duration) || 0) * (Number(s.rpe) || 0)), 0)}
+                  </span>
                 </div>
-                <div className="flex w-full h-8 rounded-full overflow-hidden mb-2 shadow-inner" style={{ background: 'linear-gradient(to right, #3b82f6, #10b981, #eab308, #f97316, #ef4444)' }}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                    <div 
-                      key={num}
-                      onClick={() => setLogRpe(num)}
-                      className={`flex-1 flex items-center justify-center cursor-pointer text-sm font-bold transition-all ${logRpe === num ? 'bg-white text-[#1f2937] scale-100 shadow-lg' : 'text-white/80 hover:bg-white/20'}`}
-                    >
-                      {num}
+                
+                {trainingSessions.map((session, index) => (
+                  <div key={session.id} className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl p-3 flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      {session.isFixed ? (
+                         <label className="text-[13px] font-bold text-gray-200">{session.name}</label>
+                      ) : (
+                         <input 
+                           type="text" 
+                           placeholder="훈련 이름" 
+                           value={session.name} 
+                           onChange={e => {
+                             const newSessions = [...trainingSessions];
+                             newSessions[index].name = e.target.value;
+                             setTrainingSessions(newSessions);
+                           }} 
+                           className="bg-transparent text-[13px] font-bold text-white border-b border-[var(--primary-color)] outline-none w-2/3"
+                         />
+                      )}
+                      {!session.isFixed && (
+                         <button onClick={() => {
+                           const newSessions = [...trainingSessions];
+                           newSessions.splice(index, 1);
+                           setTrainingSessions(newSessions);
+                         }} className="text-red-400 text-xs flex items-center gap-1 hover:text-red-300">
+                           <span className="material-icons-round text-[14px]">delete</span>삭제
+                         </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-2 text-xs font-medium text-[var(--text-muted)]">
-                  <span>없음</span>
-                  <span>극한</span>
-                </div>
-              </div>
-
-              <div className="mb-0">
-                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">훈련 시간 (분)</label>
-                <input type="number" value={logDuration} onChange={e => setLogDuration(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" />
+                    
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <label className="text-[11px] font-normal text-gray-400 mb-[4px] block">소요 시간(분)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder="예: 60"
+                          value={session.duration}
+                          onChange={e => {
+                             const newSessions = [...trainingSessions];
+                             newSessions[index].duration = e.target.value === '' ? '' : Number(e.target.value);
+                             setTrainingSessions(newSessions);
+                          }}
+                          className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" 
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-[4px]">
+                          <label className="text-[11px] font-normal text-gray-400 block">인지된 훈련 강도(힘듦 정도)</label>
+                          {session.rpe ? <span className="text-[11px] text-[var(--primary-color)] font-bold">{session.rpe}단계 ({getRpeText(session.rpe)})</span> : null}
+                        </div>
+                        <div className="flex w-full h-[30px] rounded-lg overflow-hidden shadow-inner" style={{ background: 'linear-gradient(to right, #3b82f6, #10b981, #eab308, #f97316, #ef4444)' }}>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                            <div 
+                              key={num}
+                              onClick={() => {
+                                 const newSessions = [...trainingSessions];
+                                 newSessions[index].rpe = session.rpe === num ? '' : num;
+                                 setTrainingSessions(newSessions);
+                              }}
+                              className={`flex-1 flex items-center justify-center cursor-pointer text-[12px] font-bold transition-all ${session.rpe === num ? 'bg-white text-[#1f2937] shadow-lg scale-100' : 'text-white/80 hover:bg-white/20 scale-95'}`}
+                            >
+                              {num}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <button onClick={() => {
+                  const newId = 'session_' + Date.now();
+                  setTrainingSessions([...trainingSessions, { id: newId, name: '', duration: '', rpe: '', isFixed: false }]);
+                }} className="w-full h-[36px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-gray-300 text-[13px] font-medium flex items-center justify-center gap-2 hover:bg-[rgba(255,255,255,0.1)] transition-colors mt-1">
+                  <span className="material-icons-round text-[16px]">add</span> 추가 훈련 입력하기
+                </button>
               </div>
               
               <div className="mb-0 flex gap-3">
                 <div className="flex-1">
-                  <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">왼손 악력 (kg)</label>
+                  <label className="text-[13px] font-bold text-white mb-[6px] block">왼손 악력 (kg)</label>
                   <input type="number" step="0.1" value={logGripLeft} onChange={e => setLogGripLeft(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">오른손 악력 (kg)</label>
+                  <label className="text-[13px] font-bold text-white mb-[6px] block">오른손 악력 (kg)</label>
                   <input type="number" step="0.1" value={logGripRight} onChange={e => setLogGripRight(e.target.value === '' ? '' : Number(e.target.value))} className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" />
                 </div>
               </div>
 
               <div>
-                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">수면 시간</label>
+                <label className="text-[13px] font-bold text-white mb-[6px] block">수면 시간</label>
                 <div className="flex flex-col gap-[12px] mt-[6px]">
                   <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
                   <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
                 </div>
               </div>
 
-              <button className="btn-primary w-full h-[30px] flex items-center justify-center text-[14px] font-bold mt-[12px]" onClick={submitDailyLog}>저장</button>
+              <button className="btn-primary w-full h-[30px] flex items-center justify-center text-[14px] font-bold mt-[12px]" onClick={submitDailyLog}>오늘 부하량 저장</button>
             </div>
           </div>
         </div>

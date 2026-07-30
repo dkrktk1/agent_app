@@ -1,62 +1,16 @@
 import re
 
-with open('src/components/CareTab.tsx', 'r', encoding='utf-8') as f:
+with open('src/components/ScheduleTab.tsx', 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Remove logRpe and logDuration, replace with trainingSessions
-content = content.replace("const [logRpe, setLogRpe] = useState(7);", """const [trainingSessions, setTrainingSessions] = useState<any[]>([
-    { id: 'match', name: '경기 시간', duration: '', rpe: '', isFixed: true },
-    { id: 'weight', name: '웨이트 트레이닝 시간', duration: '', rpe: '', isFixed: true },
-    { id: 'skill', name: '기술 훈련 시간', duration: '', rpe: '', isFixed: true }
-  ]);""")
-content = content.replace("const [logDuration, setLogDuration] = useState<number | string>('');", "")
+# I also need to make sure to replace setLogRpe('') in resets with something else, or just leave it alone since it's removed from state declarations?
+# Wait! I removed `const [logRpe, setLogRpe]` state! So `setLogRpe('')` will cause a build error!
+# Let's fix those too.
+content = content.replace("setLogRpe('');", "")
+content = content.replace("setLogDuration('');", "")
 
-calc_replace = """    const gl = Number(logGripLeft) || 0;
-    const gr = Number(logGripRight) || 0;
-    const overallGrip = (gl + gr) / 2;
-
-    const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
-    
-    let totalDuration = 0;
-    let totalLoad = 0;
-    trainingSessions.forEach(session => {
-      const d = Number(session.duration) || 0;
-      const r = Number(session.rpe) || 0;
-      if (d > 0 && r > 0) {
-        totalDuration += d;
-        totalLoad += (d * r);
-      }
-    });
-    
-    const logDurationNum = totalDuration;
-    const logRpe = totalDuration > 0 ? (totalLoad / totalDuration) : 0;"""
-
-target_calc = """    const gl = Number(logGripLeft) || 0;
-    const gr = Number(logGripRight) || 0;
-    const overallGrip = (gl + gr) / 2;
-
-    const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
-    const logDurationNum = Number(logDuration) || 0;
-    const curAcute = logRpe * logDurationNum;"""
-
-content = content.replace(target_calc, calc_replace)
-
-target_push = """p.schedules[existingIndex].rpe = Number(logRpe) || 0;
-      p.schedules[existingIndex].duration = logDurationNum;"""
-
-replace_push = """p.schedules[existingIndex].rpe = logRpe;
-      p.schedules[existingIndex].duration = logDurationNum;
-      p.schedules[existingIndex].sessions = trainingSessions;"""
-
-content = content.replace(target_push, replace_push)
-
-target_push_2 = """p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: Number(logRpe) || 0, duration: logDurationNum });"""
-replace_push_2 = """p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: logRpe, duration: logDurationNum, sessions: trainingSessions });"""
-
-content = content.replace(target_push_2, replace_push_2)
-
-ui_target_start = '<div>\n                <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">인지된 훈련 강도(힘듦)</label>'
-ui_target_end = 'className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" />\n              </div>'
+ui_target_start = '<div>\n                    <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">인지된 훈련 강도(힘듦)</label>'
+ui_target_end = 'className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none transition-colors" />\n                  </div>'
 
 start_idx = content.find(ui_target_start)
 end_idx = content.find(ui_target_end, start_idx) + len(ui_target_end)
@@ -112,7 +66,7 @@ if start_idx != -1 and end_idx != -1:
                              newSessions[index].duration = e.target.value === '' ? '' : Number(e.target.value);
                              setTrainingSessions(newSessions);
                           }}
-                          className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" 
+                          className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl text-white text-[13px] outline-none transition-colors" 
                         />
                       </div>
                       <div className="flex-1">
@@ -127,7 +81,7 @@ if start_idx != -1 and end_idx != -1:
                              newSessions[index].rpe = e.target.value === '' ? '' : Number(e.target.value);
                              setTrainingSessions(newSessions);
                           }}
-                          className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-lg text-white text-[13px] outline-none transition-colors" 
+                          className="w-full h-[30px] px-3 bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl text-white text-[13px] outline-none transition-colors" 
                         />
                       </div>
                     </div>
@@ -146,7 +100,6 @@ if start_idx != -1 and end_idx != -1:
 else:
     print("UI Target not found")
 
-content = content.replace('>저장<', '>오늘 부하량 저장<')
 
-with open('src/components/CareTab.tsx', 'w', encoding='utf-8') as f:
+with open('src/components/ScheduleTab.tsx', 'w', encoding='utf-8') as f:
     f.write(content)

@@ -2016,3 +2016,7 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app
 div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(8) > div:nth-of-type(1) > div:nth-of-type(1) > h4:nth-of-type(1) {
   font-size: 14px !important;
 }
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#main-app-screen:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(8) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(3) > label:nth-of-type(1) {
+  font-weight: bold;
+}
