@@ -561,7 +561,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       abs: 'abs',
       obliques: 'obliques',
       quadriceps: 'thighs',
-      adductors: 'thighs',
+      adductors: 'hip',
       knees: 'knees',
       tibialis: 'tibialis',
       feet: 'feet',
@@ -597,7 +597,8 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       palm: ['hands'],
       abs: ['abs'],
       obliques: ['obliques'],
-      thighs: ['quadriceps', 'adductors'],
+      thighs: ['quadriceps'],
+      hip: ['adductors'],
       knees: ['knees'],
       tibialis: ['tibialis'],
       feet: ['feet'],
@@ -636,6 +637,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
     'back_of_hand': '손등',
     'abs': '복부',
     'obliques': '옆구리',
+    'hip': '고관절',
     'glutes': '둔근',
     'thighs': '허벅지',
     'hamstrings': '햄스트링',
@@ -739,7 +741,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
       case 'shoulders': case 'chest': case 'upper-back': case 'trapezius': return 'scale(1.1) translateY(20%)';
       case 'biceps': case 'triceps': case 'forearm': case 'hands': return 'scale(1.1) translateY(5%)';
       case 'stomach': case 'lower-back': case 'obliques': return 'scale(1.1) translateY(-5%)';
-      case 'thigh': case 'hamstring': case 'quadriceps': case 'gluteal': return 'scale(1.1) translateY(-20%)';
+      case 'hip': case 'thigh': case 'thighs': case 'hamstring': case 'quadriceps': case 'gluteal': case 'glutes': return 'scale(1.1) translateY(-20%)';
       case 'knees': return 'scale(1.2) translateY(-35%)';
       case 'calves': return 'scale(1.2) translateY(-45%)';
       case 'ankles': case 'feet': return 'scale(1.5) translateY(-55%)';

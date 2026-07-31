@@ -6,9 +6,10 @@ interface ComprehensiveStatusDashboardProps {
   gripLeft: number;
   gripRight: number;
   isEmpty?: boolean;
+  isAcwrSufficient?: boolean;
 }
 
-export const getComprehensiveStatus = (acwr: number, sleep: number, gripLeft: number, gripRight: number, isEmpty: boolean) => {
+export const getComprehensiveStatus = (acwr: number, sleep: number, gripLeft: number, gripRight: number, isEmpty: boolean, isAcwrSufficient: boolean = true) => {
   if (isEmpty) {
     return {
       level: 0,
@@ -19,12 +20,14 @@ export const getComprehensiveStatus = (acwr: number, sleep: number, gripLeft: nu
     };
   }
 
+  const effectiveAcwr = isAcwrSufficient ? acwr : 0;
+
   let level = 4;
-  if (acwr >= 1.5 || sleep < 5 || gripLeft <= -15 || gripRight <= -15) {
+  if (effectiveAcwr >= 1.5 || sleep < 5 || gripLeft <= -15 || gripRight <= -15) {
     level = 1;
-  } else if ((acwr >= 1.3 && sleep < 6) || gripLeft <= -10 || gripRight <= -10) {
+  } else if ((effectiveAcwr >= 1.3 && sleep < 6) || gripLeft <= -10 || gripRight <= -10) {
     level = 2;
-  } else if (acwr >= 1.3 || sleep < 7 || gripLeft <= -5 || gripRight <= -5) {
+  } else if (effectiveAcwr >= 1.3 || sleep < 7 || gripLeft <= -5 || gripRight <= -5) {
     level = 3;
   }
 
@@ -68,9 +71,10 @@ export default function ComprehensiveStatusDashboard({
   sleep,
   gripLeft,
   gripRight,
-  isEmpty = false
+  isEmpty = false,
+  isAcwrSufficient = true
 }: ComprehensiveStatusDashboardProps) {
-  const status = getComprehensiveStatus(acwr, sleep, gripLeft, gripRight, isEmpty);
+  const status = getComprehensiveStatus(acwr, sleep, gripLeft, gripRight, isEmpty, isAcwrSufficient);
   const { level, badgeColor, badgeText, borderColor, icon } = status;
   
   const asymmetry = !isEmpty && Math.abs(gripLeft - gripRight) >= 15;
@@ -100,6 +104,7 @@ export default function ComprehensiveStatusDashboard({
       return { label: labels[type], status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
     }
     if (type === 'load') {
+      if (!isAcwrSufficient) return { label: '부하 (ACWR)', status: '기준 부하량 분석 중', color: 'text-yellow-400', icon: 'analytics' };
       if (acwr >= 1.5) return { label: '부하 (ACWR)', status: '위험', color: 'text-red-500', icon: 'warning' };
       if (acwr >= 1.3) return { label: '부하 (ACWR)', status: '경고', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '부하 (ACWR)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };

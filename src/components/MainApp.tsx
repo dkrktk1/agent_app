@@ -7,7 +7,7 @@ import ScheduleTab from './ScheduleTab';
 import MyPageTab from './MyPageTab';
 import { getComprehensiveStatus } from './ComprehensiveStatusDashboard';
 import { BASE_PLAYER_TEMPLATE } from '../lib/constants';
-import { rebuildChartsFromSchedules, formatKoreanCurrency } from '../utils';
+import { rebuildChartsFromSchedules, formatKoreanCurrency, isAcwrSufficient } from '../utils';
 import { savePlayerProfile, getPlayerProfile, deletePlayerProfile } from '../lib/api';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -314,16 +314,16 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
           
           const leftValues = p.gripChartData?.leftValues || [];
           const gripLeftToday = leftValues[leftValues.length - 1] || 0;
-          const gripLeftBaseline = leftValues[0] || 0;
-          const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
+          const gripLeftYesterday = leftValues.length >= 2 ? leftValues[leftValues.length - 2] : 0;
+          const leftChange = gripLeftYesterday !== 0 ? ((gripLeftToday - gripLeftYesterday) / gripLeftYesterday) * 100 : 0;
           
           const rightValues = p.gripChartData?.rightValues || [];
           const gripRightToday = rightValues[rightValues.length - 1] || 0;
-          const gripRightBaseline = rightValues[0] || 0;
-          const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
+          const gripRightYesterday = rightValues.length >= 2 ? rightValues[rightValues.length - 2] : 0;
+          const rightChange = gripRightYesterday !== 0 ? ((gripRightToday - gripRightYesterday) / gripRightYesterday) * 100 : 0;
           
           const isEmpty = acwr === 0 && sleep === 0 && gripLeftToday === 0 && gripRightToday === 0;
-          const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty);
+          const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty, isAcwrSufficient(p.schedules));
           
           let dotColorClass = 'bg-gray-500';
           if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
@@ -401,16 +401,16 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               
               const leftValues = activePlayer.gripChartData?.leftValues || [];
               const gripLeftToday = leftValues[leftValues.length - 1] || 0;
-              const gripLeftBaseline = leftValues[0] || 0;
-              const leftChange = gripLeftBaseline !== 0 ? ((gripLeftToday - gripLeftBaseline) / gripLeftBaseline) * 100 : 0;
+              const gripLeftYesterday = leftValues.length >= 2 ? leftValues[leftValues.length - 2] : 0;
+              const leftChange = gripLeftYesterday !== 0 ? ((gripLeftToday - gripLeftYesterday) / gripLeftYesterday) * 100 : 0;
               
               const rightValues = activePlayer.gripChartData?.rightValues || [];
               const gripRightToday = rightValues[rightValues.length - 1] || 0;
-              const gripRightBaseline = rightValues[0] || 0;
-              const rightChange = gripRightBaseline !== 0 ? ((gripRightToday - gripRightBaseline) / gripRightBaseline) * 100 : 0;
+              const gripRightYesterday = rightValues.length >= 2 ? rightValues[rightValues.length - 2] : 0;
+              const rightChange = gripRightYesterday !== 0 ? ((gripRightToday - gripRightYesterday) / gripRightYesterday) * 100 : 0;
               
               const isEmpty = acwr === 0 && sleep === 0 && gripLeftToday === 0 && gripRightToday === 0;
-              const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty);
+              const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty, isAcwrSufficient(activePlayer.schedules));
               
               let dotColorClass = 'bg-gray-500';
               if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';

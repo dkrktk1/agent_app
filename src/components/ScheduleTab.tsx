@@ -249,10 +249,6 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
 
   const handleDeleteEvent = () => {
     if (editingEventOriginalIndex === null) return;
-    if (!showDeleteConfirm) {
-      setShowDeleteConfirm(true);
-      return;
-    }
     let p = JSON.parse(JSON.stringify(player));
     let updatedSchedules = [...(p.schedules || [])];
     updatedSchedules.splice(editingEventOriginalIndex, 1);
@@ -977,23 +973,45 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               )}
               
               <div className="flex flex-col gap-2 mt-[-4px]">
-                {showDeleteConfirm ? (
-                  <>
-                    <div className="text-[#FF3B30] text-sm text-center mb-2 font-bold">정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</div>
-                    <div className="flex gap-2 w-full mt-4">
-                      <button className="btn-action-outline flex-1 text-white border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.1)]" onClick={() => setShowDeleteConfirm(false)}>취소</button>
-                      <button className="btn-primary flex-1 bg-[#FF3B30] hover:bg-[#FF453A]" onClick={handleDeleteEvent}>정말 삭제하기</button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex gap-2 w-full">
-                    {editingEventOriginalIndex !== null && (
-                      <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={() => setShowDeleteConfirm(true)}>삭제</button>
-                    )}
-                    <button className="btn-primary flex-1 h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
-                  </div>
-                )}
+                <div className="flex gap-2 w-full">
+                  {editingEventOriginalIndex !== null && (
+                    <button className="btn-action-outline flex-1 text-[#FF3B30] border-[#FF3B30] hover:bg-[#FF3B30] hover:text-white h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={() => setShowDeleteConfirm(true)}>삭제</button>
+                  )}
+                  <button className="btn-primary flex-1 h-[30px] flex items-center justify-center text-[14px] font-bold" style={{ fontSize: '14px' }} onClick={handleAddEvent}>{editingEventOriginalIndex !== null ? '저장하기' : '추가하기'}</button>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[1200] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 animate-fade-in" onClick={() => setShowDeleteConfirm(false)}>
+          <div 
+            className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.5)] border border-[var(--card-border)] flex flex-col items-center text-center relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-3">
+              <span className="material-icons-round text-red-500 text-2xl">warning</span>
+            </div>
+            <h3 className="text-base font-bold text-white mb-2">일정 삭제 경고</h3>
+            <p className="text-xs text-gray-300 mb-6 leading-relaxed">
+              정말로 이 일정을 삭제하시겠습니까?<br />
+              <span className="text-[11px] text-red-400 font-medium">삭제된 일정은 복구할 수 없습니다.</span>
+            </p>
+            <div className="flex gap-2 w-full">
+              <button 
+                className="btn-action-outline flex-1 h-[36px] text-gray-300 border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.08)] rounded-xl text-xs font-bold transition-colors"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                취소
+              </button>
+              <button 
+                className="btn-primary flex-1 h-[36px] bg-[#FF3B30] hover:bg-[#FF453A] text-white rounded-xl text-xs font-bold shadow-lg shadow-red-500/20 transition-colors"
+                onClick={handleDeleteEvent}
+              >
+                삭제하기
+              </button>
             </div>
           </div>
         </div>

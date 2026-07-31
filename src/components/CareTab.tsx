@@ -13,7 +13,7 @@ import {
   ReferenceArea,
   ResponsiveContainer
 } from 'recharts';
-import { downloadSampleCSV, rebuildChartsFromSchedules } from '../utils';
+import { downloadSampleCSV, rebuildChartsFromSchedules, isAcwrSufficient } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
 import { useModalHistory } from '../hooks/useModalHistory';
 
@@ -184,6 +184,14 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const [pastAcwrYear, setPastAcwrYear] = useState<string>(new Date().getFullYear().toString());
   const [pastAcwrMonth, setPastAcwrMonth] = useState<string>('all');
   const [pastAcwrWeek, setPastAcwrWeek] = useState<string>('all');
+
+  const [showAcwrExplanationModal, setShowAcwrExplanationModal] = useState(false);
+  const [showGripExplanationModal, setShowGripExplanationModal] = useState(false);
+  const [showLogSuccessModal, setShowLogSuccessModal] = useState(false);
+
+  useModalHistory(showAcwrExplanationModal, () => setShowAcwrExplanationModal(false));
+  useModalHistory(showGripExplanationModal, () => setShowGripExplanationModal(false));
+  useModalHistory(showLogSuccessModal, () => setShowLogSuccessModal(false));
 
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{isOpen: boolean, index: string | null, type: 'grip' | 'sleep' | 'acwr' | null}>({isOpen: false, index: null, type: null});
   useModalHistory(deleteConfirmModal.isOpen, () => setDeleteConfirmModal({ isOpen: false, index: null, type: null }));
@@ -477,7 +485,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     }
 
     p = rebuildChartsFromSchedules(p);
-    onUpdatePlayer(p); setIsDailyLogOpen(false); alert("오늘의 컨디셔닝 상태가 실시간 반영되었습니다!");
+    onUpdatePlayer(p); 
+    setIsDailyLogOpen(false); 
+    setShowLogSuccessModal(true);
   };
 
   const todayObj = new Date();
@@ -487,12 +497,13 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const todayCare = player.schedules?.find((s: any) => s.date === todayDateStr && s.title?.includes('[컨디셔닝]'));
   const todayLoad = todayCare ? (todayCare.rpe || 0) * (todayCare.duration || 0) : null;
 
+  const isAcwrSufficientData = isAcwrSufficient(player?.schedules);
   const latestAcwr = player.metrics?.acwr ?? 0;
-  const isAcwrEmpty = latestAcwr === 0;
-  const acwrStatusColor = isAcwrEmpty ? 'text-gray-500' : latestAcwr >= 1.5 ? 'text-red-500' : latestAcwr >= 1.3 ? 'text-yellow-500' : 'text-green-500';
-  const acwrBorderColor = isAcwrEmpty ? 'border-gray-500/30' : latestAcwr >= 1.5 ? 'border-red-500/30' : latestAcwr >= 1.3 ? 'border-yellow-500/30' : 'border-green-500/30';
-  const acwrStatusIcon = isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
-  const acwrStatusText = isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
+  const isAcwrEmpty = latestAcwr === 0 || !isAcwrSufficientData;
+  const acwrStatusColor = !isAcwrSufficientData ? 'text-yellow-400' : isAcwrEmpty ? 'text-gray-500' : latestAcwr >= 1.5 ? 'text-red-500' : latestAcwr >= 1.3 ? 'text-yellow-500' : 'text-green-500';
+  const acwrBorderColor = !isAcwrSufficientData ? 'border-yellow-500/30' : isAcwrEmpty ? 'border-gray-500/30' : latestAcwr >= 1.5 ? 'border-red-500/30' : latestAcwr >= 1.3 ? 'border-yellow-500/30' : 'border-green-500/30';
+  const acwrStatusIcon = !isAcwrSufficientData ? 'analytics' : isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
+  const acwrStatusText = !isAcwrSufficientData ? '분석 중' : isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
 
   const maxAcwrVal = Math.max(2.0, ...(player.acwrGraphData || []).map((d: any) => d.acwr || 0));
   const acwrYAxisMax = maxAcwrVal > 2.0 ? Math.ceil(maxAcwrVal * 2) / 2 : 2.0;
@@ -516,9 +527,91 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const sleepStatusIcon = isSleepEmpty ? 'info' : latestSleep < 6 ? 'warning' : latestSleep >= 8 ? 'check_circle' : 'info';
   const sleepStatusText = isSleepEmpty ? '측정값 없음' : latestSleep < 6 ? '부족' : latestSleep >= 8 ? '완벽' : '적정';
 
-  const getGripChange = (baseline: number, today: number) => {
-    if (baseline === 0) return 0;
-    return ((today - baseline) / baseline) * 100;
+  const getYesterdayGrip = (side: 'left' | 'right') => {
+    const values = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
+    if (values && values.length >= 2) {
+      const yesterdayVal = values[values.length - 2];
+      if (yesterdayVal !== undefined && yesterdayVal !== null && yesterdayVal > 0) {
+        return yesterdayVal;
+      }
+    }
+    if (player?.schedules && Array.isArray(player.schedules)) {
+      const prop = side === 'left' ? 'gripLeft' : 'gripRight';
+      const careEntries = player.schedules.filter((s: any) => s[prop] !== undefined && s[prop] > 0);
+      if (careEntries.length >= 2) {
+        return careEntries[careEntries.length - 2][prop];
+      } else if (careEntries.length === 1 && careEntries[0][prop] > 0) {
+        return careEntries[0][prop];
+      }
+    }
+    return 0;
+  };
+
+  const yesterdayLeft = getYesterdayGrip('left');
+  const yesterdayRight = getYesterdayGrip('right');
+
+  const getTop3Avg4Weeks = (side: 'left' | 'right') => {
+    const prop = side === 'left' ? 'gripLeft' : 'gripRight';
+    const todayVal = side === 'left' ? gripLeftToday : gripRightToday;
+    const now = new Date();
+    const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+
+    const values: number[] = [];
+    if (todayVal > 0) {
+      values.push(todayVal);
+    }
+
+    if (player?.schedules && Array.isArray(player.schedules)) {
+      player.schedules.forEach((s: any) => {
+        const val = s[prop];
+        if (typeof val === 'number' && val > 0) {
+          if (s.date) {
+            let schedDate: Date | null = null;
+            if (s.date.includes('-')) {
+              schedDate = new Date(s.date);
+            } else if (s.date.includes('/')) {
+              const parts = s.date.split('/');
+              if (parts.length === 2) {
+                const m = parseInt(parts[0], 10) - 1;
+                const d = parseInt(parts[1], 10);
+                schedDate = new Date(now.getFullYear(), m, d);
+                if (schedDate > now) {
+                  schedDate.setFullYear(now.getFullYear() - 1);
+                }
+              }
+            }
+            if (!schedDate || (schedDate >= twentyEightDaysAgo && schedDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
+              values.push(val);
+            }
+          } else {
+            values.push(val);
+          }
+        }
+      });
+    }
+
+    if (values.length === 0) {
+      const chartValues = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
+      if (Array.isArray(chartValues)) {
+        chartValues.forEach((v: number) => {
+          if (v > 0) values.push(v);
+        });
+      }
+    }
+
+    if (values.length === 0) return 0;
+
+    const top3 = [...values].sort((a, b) => b - a).slice(0, 3);
+    const sum = top3.reduce((acc, curr) => acc + curr, 0);
+    return Number((sum / top3.length).toFixed(1));
+  };
+
+  const avgLeft = getTop3Avg4Weeks('left');
+  const avgRight = getTop3Avg4Weeks('right');
+
+  const getGripChange = (yesterday: number, today: number) => {
+    if (yesterday === 0 || today === 0) return 0;
+    return ((today - yesterday) / yesterday) * 100;
   };
 
   const getGripStatus = (change: number, isEmpty: boolean) => {
@@ -526,35 +619,16 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     if (change >= -4.9) return { status: '최적', colorClass: 'text-green-500', borderClass: 'border-green-500/30', bgClass: 'bg-green-500/10' };
     if (change >= -9.9) return { status: '주의', colorClass: 'text-yellow-500', borderClass: 'border-yellow-500/30', bgClass: 'bg-yellow-500/10' };
     if (change >= -14.9) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
-    return { status: '치명적', colorClass: 'text-gray-500', borderClass: 'border-gray-500/30', bgClass: 'bg-gray-500/10' };
+    return { status: '치명적', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
   };
 
-  const calcTop3Avg = (prop: string) => {
-    if (!player?.schedules || player.schedules.length === 0) return 0;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
-    
-    const validValues = player.schedules
-      .filter((s: any) => s.date >= thirtyDaysAgoStr && s[prop] !== undefined && s[prop] > 0)
-      .map((s: any) => s[prop])
-      .sort((a: number, b: number) => b - a)
-      .slice(0, 3);
-      
-    if (validValues.length === 0) return 0;
-    return Number((validValues.reduce((a: number, b: number) => a + b, 0) / validValues.length).toFixed(1));
-  };
+  const isLeftEmpty = yesterdayLeft === 0 && gripLeftToday === 0;
+  const isRightEmpty = yesterdayRight === 0 && gripRightToday === 0;
 
-  const gripLeftBaseline = calcTop3Avg('gripLeft');
-  const gripRightBaseline = calcTop3Avg('gripRight');
-
-  const isLeftEmpty = gripLeftBaseline === 0 && gripLeftToday === 0;
-  const isRightEmpty = gripRightBaseline === 0 && gripRightToday === 0;
-
-  const leftChange = getGripChange(gripLeftBaseline, gripLeftToday);
-  const rightChange = getGripChange(gripRightBaseline, gripRightToday);
-  const leftStatus = getGripStatus(leftChange, isLeftEmpty);
-  const rightStatus = getGripStatus(rightChange, isRightEmpty);
+  const leftChange = yesterdayLeft > 0 ? getGripChange(yesterdayLeft, gripLeftToday) : 0;
+  const rightChange = yesterdayRight > 0 ? getGripChange(yesterdayRight, gripRightToday) : 0;
+  const leftStatus = getGripStatus(leftChange, isLeftEmpty || yesterdayLeft === 0);
+  const rightStatus = getGripStatus(rightChange, isRightEmpty || yesterdayRight === 0);
 
   return (
     <div className="tab-pane active pb-20">
@@ -611,22 +685,44 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
         gripLeft={leftChange}
         gripRight={rightChange}
         isEmpty={isAcwrEmpty && isSleepEmpty && isLeftEmpty && isRightEmpty}
+        isAcwrSufficient={isAcwrSufficientData}
       />
 
       <div className="grid grid-cols-2 gap-3" style={{ marginBottom: '12px' }}>
         {/* ACWR Card */}
         <div className={`card-chart m-0 flex flex-col justify-between shadow-lg relative ${acwrBorderColor}`} style={{ marginBottom: 0 }}>
           <div className="chart-header" style={{ marginBottom: '16px' }}>
-            <h4>ACWR</h4>
+            <div className="flex items-center gap-1.5">
+              <h4>ACWR</h4>
+              <button
+                type="button"
+                onClick={() => setShowAcwrExplanationModal(true)}
+                className="w-4 h-4 rounded-full bg-yellow-500/20 hover:bg-yellow-500/35 text-yellow-400 hover:text-yellow-300 border border-yellow-500/40 flex items-center justify-center transition-all text-[11px] font-extrabold shrink-0 cursor-pointer shadow-sm"
+                title="ACWR 설명"
+              >
+                !
+              </button>
+            </div>
             <div className={`flex items-center gap-1 font-semibold text-[11px] px-2 py-1 rounded-full bg-black/20 ${acwrStatusColor}`}>
               <span className="material-icons-round" style={{ fontSize: '11px' }}>{acwrStatusIcon}</span>
               {acwrStatusText}
             </div>
           </div>
           <div className="flex flex-col items-center justify-center">
-            <div className={`text-3xl md:text-4xl font-black leading-none text-center mb-2 ${acwrStatusColor}`}>
-              {isAcwrEmpty ? '-' : latestAcwr.toFixed(2)}
-            </div>
+            {!isAcwrSufficientData ? (
+              <div className="flex flex-col items-center justify-center my-auto py-1 text-center">
+                <div className="text-sm md:text-base font-bold text-yellow-400 mb-1 leading-snug">
+                  기준 부하량 분석 중
+                </div>
+                <div className="text-[11px] text-gray-400 font-medium">
+                  데이터 수집 중 (최소 3주 필요)
+                </div>
+              </div>
+            ) : (
+              <div className={`text-3xl md:text-4xl font-black leading-none text-center mb-2 ${acwrStatusColor}`}>
+                {isAcwrEmpty ? '-' : latestAcwr.toFixed(2)}
+              </div>
+            )}
             {todayLoad !== null && (
               <div className="text-xs md:text-sm text-[var(--text-muted)] font-medium mt-5">
                 일일 훈련 부하: {todayLoad}
@@ -665,7 +761,17 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       {/* Grip Card */}
       <div className="card-chart m-0 shadow-lg flex flex-col gap-3" style={{ marginBottom: '12px' }}>
           <div className="chart-header" style={{ marginBottom: '0px' }}>
-            <h4>악력</h4>
+            <div className="flex items-center gap-1.5">
+              <h4>악력</h4>
+              <button
+                type="button"
+                onClick={() => setShowGripExplanationModal(true)}
+                className="w-4 h-4 rounded-full bg-yellow-500/20 hover:bg-yellow-500/35 text-yellow-400 hover:text-yellow-300 border border-yellow-500/40 flex items-center justify-center transition-all text-[11px] font-extrabold shrink-0 cursor-pointer shadow-sm"
+                title="악력 지표 설명"
+              >
+                !
+              </button>
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-3 sm:gap-6">
@@ -710,9 +816,17 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 </div>
 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">어제 측정값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <span className="text-right text-[13px] text-white font-bold">{gripLeftBaseline === 0 ? '-' : gripLeftBaseline}</span>
+                    <span className="text-right text-[13px] text-white font-bold">{yesterdayLeft === 0 ? '-' : yesterdayLeft}</span>
+                    <span className="text-xs text-gray-500">kg</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평균 측정값</span>
+                  <div className="flex items-center gap-1 justify-end">
+                    <span className="text-right text-[13px] text-white font-bold">{avgLeft === 0 ? '-' : avgLeft}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>
@@ -760,9 +874,17 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 </div>
 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
-                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평소 평균값</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">어제 측정값</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <span className="text-right text-[13px] text-white font-bold">{gripRightBaseline === 0 ? '-' : gripRightBaseline}</span>
+                    <span className="text-right text-[13px] text-white font-bold">{yesterdayRight === 0 ? '-' : yesterdayRight}</span>
+                    <span className="text-xs text-gray-500">kg</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평균 측정값</span>
+                  <div className="flex items-center gap-1 justify-end">
+                    <span className="text-right text-[13px] text-white font-bold">{avgRight === 0 ? '-' : avgRight}</span>
                     <span className="text-xs text-gray-500">kg</span>
                   </div>
                 </div>
@@ -784,24 +906,38 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
             </button>
           </div>
         </div>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={player.acwrGraphData || []}
-              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-              <XAxis dataKey="date" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-              <YAxis domain={[0.5, acwrYAxisMax]} ticks={acwrYAxisTicks} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceArea y1={0.5} y2={0.8} {...{fill: "rgba(255,255,255,0.05)", fillOpacity: 1}} />
-              <ReferenceArea y1={0.8} y2={1.3} {...{fill: "#4ade80", fillOpacity: 0.15}} />
-              <ReferenceArea y1={1.3} y2={1.5} {...{fill: "#facc15", fillOpacity: 0.15}} />
-              <ReferenceArea y1={1.5} y2={acwrYAxisMax} {...{fill: "#ef4444", fillOpacity: 0.15}} />
-              <Line type="monotone" dataKey="acwr" stroke="#8E9AA8" strokeWidth={3} dot={<CustomDot />} activeDot={<CustomActiveDot />} name="ACWR" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {!isAcwrSufficientData ? (
+          <div className="h-[280px] w-full flex flex-col items-center justify-center bg-black/20 rounded-xl p-6 text-center border border-white/5 my-2">
+            <span className="material-icons-round text-yellow-400 text-4xl mb-2">analytics</span>
+            <h5 className="text-white text-sm font-bold mb-1">기준 부하량 분석 중</h5>
+            <p className="text-gray-400 text-xs max-w-md leading-relaxed">
+              선수의 급성/만성 부하 비율(ACWR)을 정확하게 산출하기 위해 <strong>최소 3주(21일)</strong> 동안의 훈련 데이터 누적이 필요합니다.
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-[11px] font-semibold border border-yellow-500/20">
+              <span className="material-icons-round text-[13px]">schedule</span>
+              데이터 수집 진행 중 (최소 3주 필요)
+            </div>
+          </div>
+        ) : (
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={player.acwrGraphData || []}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                <XAxis dataKey="date" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis domain={[0.5, acwrYAxisMax]} ticks={acwrYAxisTicks} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} />
+                <Tooltip content={<CustomTooltip />} />
+                <ReferenceArea y1={0.5} y2={0.8} {...{fill: "rgba(255,255,255,0.05)", fillOpacity: 1}} />
+                <ReferenceArea y1={0.8} y2={1.3} {...{fill: "#4ade80", fillOpacity: 0.15}} />
+                <ReferenceArea y1={1.3} y2={1.5} {...{fill: "#facc15", fillOpacity: 0.15}} />
+                <ReferenceArea y1={1.5} y2={acwrYAxisMax} {...{fill: "#ef4444", fillOpacity: 0.15}} />
+                <Line type="monotone" dataKey="acwr" stroke="#8E9AA8" strokeWidth={3} dot={<CustomDot />} activeDot={<CustomActiveDot />} name="ACWR" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
         <div className="flex flex-wrap gap-x-3 gap-y-2 mt-3 justify-center">
           <div className="flex items-start gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4ade80] opacity-50 shrink-0 mt-[4px]"></span><div className="text-[11px] sm:text-xs text-gray-400 flex flex-col leading-tight"><span className="whitespace-nowrap font-medium text-gray-300">최적 훈련 구간</span><span className="whitespace-nowrap">(0.8 ~ 1.3)</span></div></div>
           <div className="flex items-start gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#facc15] opacity-50 shrink-0 mt-[4px]"></span><div className="text-[11px] sm:text-xs text-gray-400 flex flex-col leading-tight"><span className="whitespace-nowrap font-medium text-gray-300">주의 요망</span><span className="whitespace-nowrap">(1.3 ~ 1.5)</span></div></div>
@@ -1069,6 +1205,161 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       )}
 
 
+      {showAcwrExplanationModal && (
+        <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+              <h4 className="text-[15px] font-bold text-white flex items-center gap-2">
+                <span className="material-icons-round text-[var(--primary-color)] text-lg">info</span>
+                ACWR (훈련 부하 비율) : 내 몸의 부상 경보기
+              </h4>
+              <span
+                onClick={() => setShowAcwrExplanationModal(false)}
+                className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors"
+              >
+                close
+              </span>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-5 text-sm text-gray-200 leading-relaxed">
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-[var(--primary-color)] text-sm flex items-center gap-1.5">
+                  <span className="material-icons-round text-base">analytics</span>
+                  ACWR(Acute:Chronic Workload Ratio)이란?
+                </h4>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  선수가 &apos;최근 1주일 동안 받은 스트레스(급성 부하)&apos;와 &apos;과거 4주 동안 쌓아온 체력(만성 부하)&apos;를 비교하는 지표입니다. 단순히 훈련을 많이 했는지가 아니라, &quot;내 몸이 이번 주의 훈련/시합 스케줄을 감당할 준비가 되어 있는가?&quot;를 숫자로 보여주는 핵심 부상 방지 시스템입니다.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-bold text-white text-sm">수치별 컨디션 해석</h4>
+                
+                <div className="space-y-1">
+                  <div className="font-bold text-green-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🟢</span> 0.8 ~ 1.3 (최적 훈련 구간 / Sweet Spot)
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 몸이 부하를 완벽하게 감당하고 있는 가장 이상적이고 안전한 상태입니다. 퍼포먼스가 극대화되며 부상 위험이 가장 낮습니다.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-yellow-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🟡</span> 1.3 ~ 1.5 (주의 요망)
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 평소보다 몸에 무리가 가기 시작하는 단계입니다. 이 구간이 지속되면 피로가 누적되므로, 추가적인 엑스트라 훈련보다는 회복(마사지, 수면, 영양)에 집중해야 합니다.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-red-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🔴</span> 1.5 초과 (부상 위험 극대화 / Danger Zone)
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 과거 4주간의 체력 수준에 비해 최근 1주일의 피로도가 비정상적으로 폭증한 상태입니다. 통계적으로 부상 발생 확률이 2배 이상 급증하므로 즉각적인 휴식이나 훈련량 조절이 필수적입니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-[rgba(255,255,255,0.05)] flex justify-end shrink-0 bg-black/20">
+              <button
+                onClick={() => setShowAcwrExplanationModal(false)}
+                className="btn-primary px-5 h-[34px] flex items-center justify-center text-[13px] font-bold"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGripExplanationModal && (
+        <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-lg rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center shrink-0">
+              <h4 className="text-[15px] font-bold text-white flex items-center gap-2">
+                <span className="material-icons-round text-[var(--primary-color)] text-lg">info</span>
+                악력 (Grip Strength) : 뇌와 신경의 피로도 측정기
+              </h4>
+              <span
+                onClick={() => setShowGripExplanationModal(false)}
+                className="material-icons-round text-gray-400 hover:text-white cursor-pointer transition-colors"
+              >
+                close
+              </span>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-5 text-sm text-gray-200 leading-relaxed">
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-[var(--primary-color)] text-sm flex items-center gap-1.5">
+                  <span className="material-icons-round text-base">psychology</span>
+                  왜 악력을 측정하나요?
+                </h4>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  악력은 단순히 전완근(팔뚝)의 근력을 재는 것이 아닙니다. 우리 몸의 중추신경계(CNS) 피로도를 보여주는 가장 빠르고 정확한 거울입니다. 잦은 시합, 이동, 수면 부족 등으로 뇌와 신경이 지치면, 몸의 다른 곳에 근육통이 오기 전에 가장 먼저 손아귀의 쥐는 힘(신경 전달 속도)부터 미세하게 떨어지게 됩니다.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-bold text-white text-sm">기존 평균값 대비 차이 (컨디션 지표)</h4>
+                <p className="text-xs text-gray-400 -mt-1">평소 자신의 평균 악력(최근 2~4주)과 오늘의 악력을 비교합니다.</p>
+                
+                <div className="space-y-1">
+                  <div className="font-bold text-green-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🟢</span> 평균 대비 -5% 이내
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 중추신경계가 잘 회복된 정상적인 컨디션입니다.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-yellow-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🟡</span> 평균 대비 -5% ~ -10% 하락
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 신경계 피로가 쌓이기 시작했습니다. 무거운 웨이트 트레이닝의 중량을 줄이고, 코어 및 밸런스 위주로 훈련을 조정해야 합니다.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-red-400 text-xs sm:text-sm flex items-center gap-1.5">
+                    <span>🔴</span> 평균 대비 -10% 이상 하락
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-5">
+                    - 중추신경계가 완전히 지친 &apos;방전&apos; 상태입니다. 배트 스피드가 떨어지고 투구 밸런스가 흔들릴 확률이 매우 높습니다. 강도 높은 훈련을 중단하고 전면적인 휴식을 취해야 합니다.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
+                  <span className="material-icons-round text-base text-purple-400">compare_arrows</span>
+                  좌우 악력 편차의 해석
+                </h4>
+                
+                <div className="text-xs text-gray-300 space-y-2">
+                  <div>
+                    <strong className="text-white">정상 범위:</strong> 보통 주로 쓰는 손(주동안)이 반대 손보다 약 5~10% 정도 강한 것이 정상입니다.
+                  </div>
+                  <div>
+                    <strong className="text-yellow-400">주의 신호:</strong> 만약 평소 우투/우타 선수의 오른손 악력이 갑자기 왼손보다 약해지거나, 좌우 악력 차이가 평소보다 15% 이상 크게 벌어진다면 어깨, 팔꿈치, 손목 등 투구/타격에 쓰이는 관절 주변 근육에 보상 작용(무리한 힘이 들어감)이나 미세 손상이 발생하고 있다는 강력한 경고입니다.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-[rgba(255,255,255,0.05)] flex justify-end shrink-0 bg-black/20">
+              <button
+                onClick={() => setShowGripExplanationModal(false)}
+                className="btn-primary px-5 h-[34px] flex items-center justify-center text-[13px] font-bold"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteConfirmModal.isOpen && (
         <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
           <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 animate-scale-up">
@@ -1088,6 +1379,26 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 삭제하기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showLogSuccessModal && (
+        <div className="fixed inset-0 z-[1200] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 flex justify-center items-center">
+          <div className="card-chart bg-[var(--card-bg)] w-full max-w-sm rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden border border-[var(--card-border)] flex flex-col p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
+              <span className="material-icons-round text-2xl">check_circle</span>
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">당일 지표 입력 완료</h3>
+            <p className="text-gray-300 text-xs sm:text-sm mb-6 leading-relaxed">
+              오늘의 컨디셔닝 상태가 실시간으로 반영되었습니다.
+            </p>
+            <button 
+              onClick={() => setShowLogSuccessModal(false)}
+              className="btn-primary w-full h-[40px] rounded-xl flex items-center justify-center text-[14px] font-bold shadow-md cursor-pointer"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}

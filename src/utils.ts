@@ -109,8 +109,71 @@ export function downloadSampleCSV(role: string) {
 }
 
 
+export function getFirstTrainingDate(schedules: any[]): Date | null {
+  if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  
+  let earliestDate: Date | null = null;
+  
+  schedules.forEach(s => {
+    if (!s || !s.date || typeof s.date !== 'string') return;
+    let dObj: Date | null = null;
+    if (s.date.includes('/')) {
+      const parts = s.date.split('/');
+      if (parts.length === 2) {
+        const m = parseInt(parts[0], 10) - 1;
+        const d = parseInt(parts[1], 10);
+        dObj = new Date(currentYear, m, d);
+        if (dObj.getTime() - now.getTime() > 86400000 * 30) {
+          dObj.setFullYear(currentYear - 1);
+        }
+      }
+    } else if (s.date.includes('-')) {
+      const parsed = new Date(s.date);
+      if (!isNaN(parsed.getTime())) dObj = parsed;
+    }
+    
+    if (dObj && !isNaN(dObj.getTime())) {
+      if (!earliestDate || dObj.getTime() < earliestDate.getTime()) {
+        earliestDate = dObj;
+      }
+    }
+  });
+  
+  return earliestDate;
+}
+
+export function isAcwrSufficient(schedules: any[], targetDateStr?: string): boolean {
+  const firstDate = getFirstTrainingDate(schedules);
+  if (!firstDate) return false;
+  
+  const now = new Date();
+  let targetDate = new Date();
+  if (targetDateStr && typeof targetDateStr === 'string') {
+    if (targetDateStr.includes('/')) {
+      const parts = targetDateStr.split('/');
+      if (parts.length === 2) {
+        targetDate = new Date(now.getFullYear(), parseInt(parts[0], 10) - 1, parseInt(parts[1], 10));
+        if (targetDate.getTime() - now.getTime() > 86400000 * 30) {
+          targetDate.setFullYear(now.getFullYear() - 1);
+        }
+      }
+    } else if (targetDateStr.includes('-')) {
+      const parsed = new Date(targetDateStr);
+      if (!isNaN(parsed.getTime())) targetDate = parsed;
+    }
+  }
+  
+  const diffMs = targetDate.getTime() - firstDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  return diffDays >= 21;
+}
+
 export function calculateACWR(schedules: any[], targetDateStr: string): number {
   if (!schedules || !Array.isArray(schedules)) return 0;
+  if (!isAcwrSufficient(schedules, targetDateStr)) return 0;
   
   // parse targetDateStr which is 'MM/DD' format. Assuming current year (or 2026).
   const currentYear = new Date().getFullYear();
