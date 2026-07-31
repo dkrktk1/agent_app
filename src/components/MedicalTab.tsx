@@ -2124,6 +2124,7 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                   value={timelineFormDateLabel}
                   onChange={(e) => setTimelineFormDateLabel(e.target.value)}
                   max="9999-12-31"
+                  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none transition-colors"
                 />
               </div>
 
@@ -2149,16 +2150,12 @@ export default function MedicalTab({ player, isAgent, onUpdatePlayer }: { player
                       }
                       setShowCustomTimeModal(true);
                     }}
-                    className="relative flex items-center gap-3 w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl py-2 px-2 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer transition-colors min-h-[46px]"
+                    className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] focus:outline-none flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                   >
-                    <div className="bg-[rgba(255,255,255,0.1)] text-white text-xs font-bold px-3 py-1.5 rounded-lg pointer-events-none">
-                      {timelineFormTime ? '수정' : '시간 입력'}
-                    </div>
-                    {timelineFormTime && (
-                      <span className="text-white text-sm pointer-events-none">
-                        {formatTimeStr(timelineFormTime)}
-                      </span>
-                    )}
+                    <span className={timelineFormTime ? "text-white" : "text-gray-500"}>
+                      {timelineFormTime ? formatTimeStr(timelineFormTime) : '시간 입력'}
+                    </span>
+                    <span className="material-icons-round text-gray-400 text-[16px]">schedule</span>
                   </div>
                 </div>
               )}
