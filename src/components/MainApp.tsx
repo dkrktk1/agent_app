@@ -312,9 +312,11 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
           const statusInfo = getPlayerComprehensiveStatus(p);
           
           let dotColorClass = 'bg-gray-500';
-          if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
+          if (statusInfo.level === 1) dotColorClass = 'bg-red-500';
+          else if (statusInfo.level === 2) dotColorClass = 'bg-orange-500';
           else if (statusInfo.level === 3) dotColorClass = 'bg-yellow-500';
           else if (statusInfo.level === 4) dotColorClass = 'bg-[#4ade80]';
+          else if (statusInfo.level === 5) dotColorClass = 'bg-gray-400';
 
           return (
           <div 
@@ -385,9 +387,11 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               const statusInfo = getPlayerComprehensiveStatus(activePlayer);
               
               let dotColorClass = 'bg-gray-500';
-              if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
+              if (statusInfo.level === 1) dotColorClass = 'bg-red-500';
+              else if (statusInfo.level === 2) dotColorClass = 'bg-orange-500';
               else if (statusInfo.level === 3) dotColorClass = 'bg-yellow-500';
               else if (statusInfo.level === 4) dotColorClass = 'bg-[#4ade80]';
+              else if (statusInfo.level === 5) dotColorClass = 'bg-gray-400';
 
               return (
               <div className="player-summary-card">

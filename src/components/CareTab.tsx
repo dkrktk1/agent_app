@@ -622,13 +622,13 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     return { status: '치명적', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
   };
 
-  const isLeftEmpty = yesterdayLeft === 0 && gripLeftToday === 0;
-  const isRightEmpty = yesterdayRight === 0 && gripRightToday === 0;
+  const isLeftEmpty = avgLeft === 0 || gripLeftToday === 0;
+  const isRightEmpty = avgRight === 0 || gripRightToday === 0;
 
-  const leftChange = yesterdayLeft > 0 ? getGripChange(yesterdayLeft, gripLeftToday) : 0;
-  const rightChange = yesterdayRight > 0 ? getGripChange(yesterdayRight, gripRightToday) : 0;
-  const leftStatus = getGripStatus(leftChange, isLeftEmpty || yesterdayLeft === 0);
-  const rightStatus = getGripStatus(rightChange, isRightEmpty || yesterdayRight === 0);
+  const leftChange = (avgLeft > 0 && gripLeftToday > 0) ? getGripChange(avgLeft, gripLeftToday) : 0;
+  const rightChange = (avgRight > 0 && gripRightToday > 0) ? getGripChange(avgRight, gripRightToday) : 0;
+  const leftStatus = getGripStatus(leftChange, isLeftEmpty);
+  const rightStatus = getGripStatus(rightChange, isRightEmpty);
 
   return (
     <div className="tab-pane active pb-20">
