@@ -498,12 +498,12 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const todayLoad = todayCare ? (todayCare.rpe || 0) * (todayCare.duration || 0) : null;
 
   const isAcwrSufficientData = isAcwrSufficient(player?.schedules);
-  const latestAcwr = player.metrics?.acwr ?? 0;
+  const latestAcwr = isAcwrSufficientData ? (player.metrics?.acwr ?? 0) : 0;
   const isAcwrEmpty = latestAcwr === 0 || !isAcwrSufficientData;
-  const acwrStatusColor = !isAcwrSufficientData ? 'text-yellow-400' : isAcwrEmpty ? 'text-gray-500' : latestAcwr >= 1.5 ? 'text-red-500' : latestAcwr >= 1.3 ? 'text-yellow-500' : 'text-green-500';
-  const acwrBorderColor = !isAcwrSufficientData ? 'border-yellow-500/30' : isAcwrEmpty ? 'border-gray-500/30' : latestAcwr >= 1.5 ? 'border-red-500/30' : latestAcwr >= 1.3 ? 'border-yellow-500/30' : 'border-green-500/30';
-  const acwrStatusIcon = !isAcwrSufficientData ? 'analytics' : isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
-  const acwrStatusText = !isAcwrSufficientData ? '분석 중' : isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
+  const acwrStatusColor = (!isAcwrSufficientData || latestAcwr === 0) ? 'text-yellow-400' : isAcwrEmpty ? 'text-gray-500' : latestAcwr >= 1.5 ? 'text-red-500' : latestAcwr >= 1.3 ? 'text-yellow-500' : 'text-green-500';
+  const acwrBorderColor = (!isAcwrSufficientData || latestAcwr === 0) ? 'border-yellow-500/30' : isAcwrEmpty ? 'border-gray-500/30' : latestAcwr >= 1.5 ? 'border-red-500/30' : latestAcwr >= 1.3 ? 'border-yellow-500/30' : 'border-green-500/30';
+  const acwrStatusIcon = (!isAcwrSufficientData || latestAcwr === 0) ? 'analytics' : isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
+  const acwrStatusText = (!isAcwrSufficientData || latestAcwr === 0) ? '기준 부하량 분석 중' : isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
 
   const maxAcwrVal = Math.max(2.0, ...(player.acwrGraphData || []).map((d: any) => d.acwr || 0));
   const acwrYAxisMax = maxAcwrVal > 2.0 ? Math.ceil(maxAcwrVal * 2) / 2 : 2.0;
@@ -709,7 +709,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
             </div>
           </div>
           <div className="flex flex-col items-center justify-center">
-            {!isAcwrSufficientData ? (
+            {(!isAcwrSufficientData || latestAcwr === 0) ? (
               <div className="flex flex-col items-center justify-center my-auto py-1 text-center">
                 <div className="text-sm md:text-base font-bold text-yellow-400 mb-1 leading-snug">
                   기준 부하량 분석 중
@@ -720,7 +720,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               </div>
             ) : (
               <div className={`text-3xl md:text-4xl font-black leading-none text-center mb-2 ${acwrStatusColor}`}>
-                {isAcwrEmpty ? '-' : latestAcwr.toFixed(2)}
+                {latestAcwr.toFixed(2)}
               </div>
             )}
             {todayLoad !== null && (

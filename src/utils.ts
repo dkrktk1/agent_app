@@ -109,112 +109,222 @@ export function downloadSampleCSV(role: string) {
 }
 
 
-export function getFirstTrainingDate(schedules: any[]): Date | null {
-  if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  
-  let earliestDate: Date | null = null;
-  
-  schedules.forEach(s => {
-    if (!s || !s.date || typeof s.date !== 'string') return;
-    let dObj: Date | null = null;
-    if (s.date.includes('/')) {
-      const parts = s.date.split('/');
-      if (parts.length === 2) {
-        const m = parseInt(parts[0], 10) - 1;
-        const d = parseInt(parts[1], 10);
-        dObj = new Date(currentYear, m, d);
-        if (dObj.getTime() - now.getTime() > 86400000 * 30) {
-          dObj.setFullYear(currentYear - 1);
+export function parseToDateObj(dateVal: any, referenceDate: Date = new Date()): Date | null {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    return new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(), 0, 0, 0, 0);
+  }
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    if (/^\d{1,2}\/\d{1,2}$/.test(trimmed)) {
+      const parts = trimmed.split('/');
+      const m = parseInt(parts[0], 10);
+      const d = parseInt(parts[1], 10);
+      if (!isNaN(m) && !isNaN(d) && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        let yr = referenceDate.getFullYear();
+        let dateObj = new Date(yr, m - 1, d, 0, 0, 0, 0);
+        if (dateObj.getTime() - referenceDate.getTime() > 86400000 * 2) {
+          dateObj.setFullYear(yr - 1);
         }
+        return dateObj;
       }
-    } else if (s.date.includes('-')) {
-      const parsed = new Date(s.date);
-      if (!isNaN(parsed.getTime())) dObj = parsed;
+    } else if (trimmed.includes('-') || trimmed.includes('/')) {
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) {
+        return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+      }
     }
-    
-    if (dObj && !isNaN(dObj.getTime())) {
-      if (!earliestDate || dObj.getTime() < earliestDate.getTime()) {
-        earliestDate = dObj;
-      }
+  }
+  return null;
+}
+
+export function parseScheduleDateToObj(dateStr: string, referenceYear: number = new Date().getFullYear()): Date | null {
+  return parseToDateObj(dateStr, new Date(referenceYear, 0, 1));
+}
+
+export function getFirstTrainingDate(schedules: any[], targetDateObj: Date = new Date()): Date | null {
+  if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null;
+  const targetMidnight = new Date(targetDateObj.getFullYear(), targetDateObj.getMonth(), targetDateObj.getDate(), 0, 0, 0, 0);
+
+  const trainingRecords = schedules.filter(s => {
+    if (!s || !s.date) return false;
+    const dObj = parseToDateObj(s.date, targetMidnight);
+    if (!dObj) return false;
+    if (dObj.getTime() > targetMidnight.getTime()) return false;
+    return (
+      (s.rpe !== undefined && Number(s.rpe) > 0) ||
+      (s.duration !== undefined && Number(s.duration) > 0) ||
+      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정'))) ||
+      s.acwr !== undefined
+    );
+  });
+
+  const pool = trainingRecords.length > 0 ? trainingRecords : schedules.filter(s => {
+    if (!s || !s.date) return false;
+    const dObj = parseToDateObj(s.date, targetMidnight);
+    return dObj && dObj.getTime() <= targetMidnight.getTime();
+  });
+
+  if (pool.length === 0) return null;
+
+  let earliestDate: Date | null = null;
+  pool.forEach(s => {
+    if (!s || !s.date) return;
+    const dObj = parseToDateObj(s.date, targetMidnight);
+    if (!dObj) return;
+    if (!earliestDate || dObj.getTime() < earliestDate.getTime()) {
+      earliestDate = dObj;
     }
   });
-  
+
   return earliestDate;
 }
 
 export function isAcwrSufficient(schedules: any[], targetDateStr?: string): boolean {
-  const firstDate = getFirstTrainingDate(schedules);
-  if (!firstDate) return false;
-  
+  if (!schedules || !Array.isArray(schedules) || schedules.length === 0) {
+    return false;
+  }
+
   const now = new Date();
-  let targetDate = new Date();
+  let currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
   if (targetDateStr && typeof targetDateStr === 'string') {
-    if (targetDateStr.includes('/')) {
-      const parts = targetDateStr.split('/');
-      if (parts.length === 2) {
-        targetDate = new Date(now.getFullYear(), parseInt(parts[0], 10) - 1, parseInt(parts[1], 10));
-        if (targetDate.getTime() - now.getTime() > 86400000 * 30) {
-          targetDate.setFullYear(now.getFullYear() - 1);
-        }
-      }
-    } else if (targetDateStr.includes('-')) {
-      const parsed = new Date(targetDateStr);
-      if (!isNaN(parsed.getTime())) targetDate = parsed;
+    const parsedTarget = parseToDateObj(targetDateStr, now);
+    if (parsedTarget) {
+      currentDate = parsedTarget;
     }
   }
-  
-  const diffMs = targetDate.getTime() - firstDate.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  return diffDays >= 21;
+
+  const records = schedules.filter(s => {
+    if (!s || !s.date) return false;
+    const dObj = parseToDateObj(s.date, currentDate);
+    if (!dObj) return false;
+    if (dObj.getTime() > currentDate.getTime()) return false;
+    return (
+      (s.rpe !== undefined && Number(s.rpe) > 0) ||
+      (s.duration !== undefined && Number(s.duration) > 0) ||
+      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
+    );
+  });
+
+  if (!records || records.length === 0) {
+    return false;
+  }
+
+  const validDates = records
+    .map(r => parseToDateObj(r.date, currentDate))
+    .filter((d): d is Date => d !== null);
+
+  if (validDates.length === 0) {
+    return false;
+  }
+
+  const firstDate = new Date(Math.min(...validDates.map(d => d.getTime())));
+  const diffTime = currentDate.getTime() - firstDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 21) {
+    return false;
+  }
+
+  return true;
 }
 
 export function calculateACWR(schedules: any[], targetDateStr: string): number {
-  if (!schedules || !Array.isArray(schedules)) return 0;
-  if (!isAcwrSufficient(schedules, targetDateStr)) return 0;
+  if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return 0;
   
-  // parse targetDateStr which is 'MM/DD' format. Assuming current year (or 2026).
-  const currentYear = new Date().getFullYear();
-  const [mStr, dStr] = targetDateStr.split('/');
-  if (!mStr || !dStr) return 0;
-  
-  const targetDate = new Date(currentYear, parseInt(mStr) - 1, parseInt(dStr));
-  
-  const dailyWorkloads: Record<string, number> = {};
-  
-  const past28Days = [];
-  for (let i = 0; i < 28; i++) {
-    const d = new Date(targetDate);
-    d.setDate(d.getDate() - i);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    past28Days.push(`${month}/${day}`);
+  const now = new Date();
+  const targetDateObj = parseToDateObj(targetDateStr, now) || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  // Filter valid training/conditioning records up to targetDateObj
+  const records = schedules.filter(s => {
+    if (!s || !s.date) return false;
+    const dObj = parseToDateObj(s.date, targetDateObj);
+    if (!dObj) return false;
+    if (dObj.getTime() > targetDateObj.getTime()) return false;
+    return (
+      (s.rpe !== undefined && Number(s.rpe) > 0) ||
+      (s.duration !== undefined && Number(s.duration) > 0) ||
+      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
+    );
+  });
+
+  if (!records || records.length === 0) {
+    return 0;
+  }
+
+  const validDates = records
+    .map(r => parseToDateObj(r.date, targetDateObj))
+    .filter((d): d is Date => d !== null);
+
+  if (validDates.length === 0) {
+    return 0;
+  }
+
+  // 1. 최초 기록 날짜(firstDate) 구하기
+  const firstDate = new Date(Math.min(...validDates.map(d => d.getTime())));
+
+  // 2. 밀리초(ms) 단위로 정확히 빼서 일(day) 수 계산 (targetDateObj 기준)
+  const diffTime = targetDateObj.getTime() - firstDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  // 3. 안전장치: 최초 기록일로부터 21일 미만 경과 시 무조건 0 반환
+  if (diffDays < 21) {
+    return 0;
   }
   
-  past28Days.forEach(dateStr => {
-    const daySchedules = schedules.filter(s => s.date === dateStr);
+  // 1. 연속된 달력(Date) 배열 생성 및 0 채우기 (Data Padding)
+  // targetDateObj 기준 최근 28일의 연속된 날짜 배열 생성
+  const past28Days: { dateStr: string; dateObj: Date }[] = [];
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(targetDateObj);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    past28Days.push({ dateStr: `${month}/${day}`, dateObj: d });
+  }
+
+  const dailyWorkloads: Record<string, number> = {};
+
+  past28Days.forEach(({ dateStr, dateObj }) => {
+    // 해당 날짜에 입력된 실제 훈련 기록이 존재하면 그 일일 부하를 가져옴
+    const daySchedules = schedules.filter(s => {
+      if (!s || !s.date) return false;
+      const parsed = parseToDateObj(s.date, dateObj);
+      if (parsed) {
+        return parsed.getTime() === dateObj.getTime();
+      }
+      return s.date === dateStr;
+    });
+
     let dailyLoad = 0;
     daySchedules.forEach(s => {
       const duration = Number(s.duration) || 0;
       const rpe = Number(s.rpe) || 0;
       dailyLoad += duration * rpe;
     });
+
+    // 기록이 없으면 0으로 자동 할당
     dailyWorkloads[dateStr] = dailyLoad;
   });
-  
+
+  // 2. 0이 채워진 연속 배열을 바탕으로 급성/만성 계산
+  // 최근 7일 총합 (급성 부하)
   let acuteLoad = 0;
   for (let i = 0; i < 7; i++) {
-    acuteLoad += dailyWorkloads[past28Days[i]] || 0;
+    acuteLoad += dailyWorkloads[past28Days[i].dateStr] || 0;
   }
-  
+
+  // 최근 28일 일평균 부하 (만성 부하)
   let chronicLoadSum = 0;
   for (let i = 0; i < 28; i++) {
-    chronicLoadSum += dailyWorkloads[past28Days[i]] || 0;
+    chronicLoadSum += dailyWorkloads[past28Days[i].dateStr] || 0;
   }
+
+  // 만성 부하 (28일 총합 / 4 = 7일 기준 평균)
   const chronicLoad = chronicLoadSum / 4;
-  
+
   if (chronicLoad === 0) return 0;
   const acwr = acuteLoad / chronicLoad;
   return Number(acwr.toFixed(2));
@@ -275,8 +385,9 @@ export const rebuildChartsFromSchedules = (player: any) => {
     p.metrics.grip = parseFloat(((todayCareEvent.grip - 50) / 50 * 100).toFixed(1));
     p.metrics.sleep = todayCareEvent.sleep || 0;
     
-    if (p.metrics.acwr >= 1.5 || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-    else if (p.metrics.acwr >= 1.3 || p.metrics.grip <= -5) p.status = "warning";
+    const acwrSufficient = isAcwrSufficient(p.schedules, todayStr);
+    if ((acwrSufficient && p.metrics.acwr >= 1.5) || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
+    else if ((acwrSufficient && p.metrics.acwr >= 1.3) || p.metrics.grip <= -5) p.status = "warning";
     else p.status = "normal";
   }
 

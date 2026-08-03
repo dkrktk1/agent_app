@@ -1,4 +1,5 @@
 import React from 'react';
+import { isAcwrSufficient } from '../utils';
 
 interface ComprehensiveStatusDashboardProps {
   acwr: number;
@@ -66,6 +67,64 @@ export const getComprehensiveStatus = (acwr: number, sleep: number, gripLeft: nu
   return { level, badgeColor, badgeText, borderColor, icon };
 };
 
+export const getPlayerComprehensiveStatus = (player: any) => {
+  if (!player) {
+    return getComprehensiveStatus(0, 0, 0, 0, true, false);
+  }
+
+  const isAcwrSufficientData = isAcwrSufficient(player.schedules);
+  const latestAcwr = isAcwrSufficientData ? (player.metrics?.acwr ?? 0) : 0;
+  const isAcwrEmpty = latestAcwr === 0 || !isAcwrSufficientData;
+
+  const latestSleep = player.sleepChartData?.length 
+    ? player.sleepChartData[player.sleepChartData.length - 1].sleepDuration 
+    : 0;
+  const isSleepEmpty = latestSleep === 0;
+
+  const getYesterdayGrip = (side: 'left' | 'right') => {
+    const values = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
+    if (values && values.length >= 2) {
+      const yesterdayVal = values[values.length - 2];
+      if (yesterdayVal !== undefined && yesterdayVal !== null && yesterdayVal > 0) {
+        return yesterdayVal;
+      }
+    }
+    if (player?.schedules && Array.isArray(player.schedules)) {
+      const prop = side === 'left' ? 'gripLeft' : 'gripRight';
+      const careEntries = player.schedules.filter((s: any) => s[prop] !== undefined && s[prop] > 0);
+      if (careEntries.length >= 2) {
+        return careEntries[careEntries.length - 2][prop];
+      } else if (careEntries.length === 1 && careEntries[0][prop] > 0) {
+        return careEntries[0][prop];
+      }
+    }
+    return 0;
+  };
+
+  const yesterdayLeft = getYesterdayGrip('left');
+  const yesterdayRight = getYesterdayGrip('right');
+
+  const leftValues = player.gripChartData?.leftValues || [];
+  const gripLeftToday = leftValues[leftValues.length - 1] || 0;
+  const rightValues = player.gripChartData?.rightValues || [];
+  const gripRightToday = rightValues[rightValues.length - 1] || 0;
+
+  const getGripChange = (yesterday: number, today: number) => {
+    if (yesterday === 0 || today === 0) return 0;
+    return ((today - yesterday) / yesterday) * 100;
+  };
+
+  const isLeftEmpty = yesterdayLeft === 0 && gripLeftToday === 0;
+  const isRightEmpty = yesterdayRight === 0 && gripRightToday === 0;
+
+  const leftChange = (yesterdayLeft > 0 && gripLeftToday > 0) ? getGripChange(yesterdayLeft, gripLeftToday) : 0;
+  const rightChange = (yesterdayRight > 0 && gripRightToday > 0) ? getGripChange(yesterdayRight, gripRightToday) : 0;
+
+  const isEmpty = isAcwrEmpty && isSleepEmpty && isLeftEmpty && isRightEmpty;
+
+  return getComprehensiveStatus(latestAcwr, latestSleep, leftChange, rightChange, isEmpty, isAcwrSufficientData);
+};
+
 export default function ComprehensiveStatusDashboard({
   acwr,
   sleep,
@@ -104,7 +163,7 @@ export default function ComprehensiveStatusDashboard({
       return { label: labels[type], status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
     }
     if (type === 'load') {
-      if (!isAcwrSufficient) return { label: '부하 (ACWR)', status: '기준 부하량 분석 중', color: 'text-yellow-400', icon: 'analytics' };
+      if (!isAcwrSufficient || acwr === 0) return { label: '부하 (ACWR)', status: '기준 부하량 분석 중', color: 'text-yellow-400', icon: 'analytics' };
       if (acwr >= 1.5) return { label: '부하 (ACWR)', status: '위험', color: 'text-red-500', icon: 'warning' };
       if (acwr >= 1.3) return { label: '부하 (ACWR)', status: '경고', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '부하 (ACWR)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };

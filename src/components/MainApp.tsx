@@ -5,7 +5,7 @@ import MedicalTab from './MedicalTab';
 import BizTab from './BizTab';
 import ScheduleTab from './ScheduleTab';
 import MyPageTab from './MyPageTab';
-import { getComprehensiveStatus } from './ComprehensiveStatusDashboard';
+import { getComprehensiveStatus, getPlayerComprehensiveStatus } from './ComprehensiveStatusDashboard';
 import { BASE_PLAYER_TEMPLATE } from '../lib/constants';
 import { rebuildChartsFromSchedules, formatKoreanCurrency, isAcwrSufficient } from '../utils';
 import { savePlayerProfile, getPlayerProfile, deletePlayerProfile } from '../lib/api';
@@ -309,21 +309,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.values(allPlayers).map((p: any, index: number) => {
-          const acwr = p.metrics?.acwr || 0;
-          const sleep = p.sleepChartData?.length ? p.sleepChartData[p.sleepChartData.length - 1].sleepDuration : 0;
-          
-          const leftValues = p.gripChartData?.leftValues || [];
-          const gripLeftToday = leftValues[leftValues.length - 1] || 0;
-          const gripLeftYesterday = leftValues.length >= 2 ? leftValues[leftValues.length - 2] : 0;
-          const leftChange = gripLeftYesterday !== 0 ? ((gripLeftToday - gripLeftYesterday) / gripLeftYesterday) * 100 : 0;
-          
-          const rightValues = p.gripChartData?.rightValues || [];
-          const gripRightToday = rightValues[rightValues.length - 1] || 0;
-          const gripRightYesterday = rightValues.length >= 2 ? rightValues[rightValues.length - 2] : 0;
-          const rightChange = gripRightYesterday !== 0 ? ((gripRightToday - gripRightYesterday) / gripRightYesterday) * 100 : 0;
-          
-          const isEmpty = acwr === 0 && sleep === 0 && gripLeftToday === 0 && gripRightToday === 0;
-          const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty, isAcwrSufficient(p.schedules));
+          const statusInfo = getPlayerComprehensiveStatus(p);
           
           let dotColorClass = 'bg-gray-500';
           if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';
@@ -396,21 +382,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
               </button>
             )}
             {(() => {
-              const acwr = activePlayer.metrics?.acwr || 0;
-              const sleep = activePlayer.sleepChartData?.length ? activePlayer.sleepChartData[activePlayer.sleepChartData.length - 1].sleepDuration : 0;
-              
-              const leftValues = activePlayer.gripChartData?.leftValues || [];
-              const gripLeftToday = leftValues[leftValues.length - 1] || 0;
-              const gripLeftYesterday = leftValues.length >= 2 ? leftValues[leftValues.length - 2] : 0;
-              const leftChange = gripLeftYesterday !== 0 ? ((gripLeftToday - gripLeftYesterday) / gripLeftYesterday) * 100 : 0;
-              
-              const rightValues = activePlayer.gripChartData?.rightValues || [];
-              const gripRightToday = rightValues[rightValues.length - 1] || 0;
-              const gripRightYesterday = rightValues.length >= 2 ? rightValues[rightValues.length - 2] : 0;
-              const rightChange = gripRightYesterday !== 0 ? ((gripRightToday - gripRightYesterday) / gripRightYesterday) * 100 : 0;
-              
-              const isEmpty = acwr === 0 && sleep === 0 && gripLeftToday === 0 && gripRightToday === 0;
-              const statusInfo = getComprehensiveStatus(acwr, sleep, leftChange, rightChange, isEmpty, isAcwrSufficient(activePlayer.schedules));
+              const statusInfo = getPlayerComprehensiveStatus(activePlayer);
               
               let dotColorClass = 'bg-gray-500';
               if (statusInfo.level === 1 || statusInfo.level === 2) dotColorClass = 'bg-red-500';

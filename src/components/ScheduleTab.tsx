@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useModalHistory } from '../hooks/useModalHistory';
-import { getPartName, rebuildChartsFromSchedules } from '../utils';
+import { getPartName, rebuildChartsFromSchedules, isAcwrSufficient } from '../utils';
 
 const getRpeText = (rpe: number | string) => {
   const r = Number(rpe);
@@ -555,7 +555,13 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                     </div>
                     {isCare && (s.acwr !== undefined || s.grip !== undefined || s.gripLeft !== undefined || s.gripRight !== undefined || s.sleep !== undefined) && (
                       <div className="text-gray-400 text-sm mt-1.5 font-medium flex gap-2 flex-wrap">
-                        {s.acwr !== undefined && <span>ACWR: {Number(s.acwr).toFixed(2)}</span>}
+                        {s.acwr !== undefined && (
+                          isAcwrSufficient(player?.schedules, s.date) ? (
+                            <span>ACWR: {Number(s.acwr).toFixed(2)}</span>
+                          ) : (
+                            <span className="text-yellow-400 font-semibold">ACWR: 데이터 수집 중 (최소 3주 필요)</span>
+                          )
+                        )}
                         {s.gripLeft !== undefined && <span>악력(좌): {s.gripLeft}kg</span>}
                         {s.gripRight !== undefined && <span>악력(우): {s.gripRight}kg</span>}
                         {s.grip !== undefined && s.gripLeft === undefined && <span>악력: {s.grip}kg</span>}
