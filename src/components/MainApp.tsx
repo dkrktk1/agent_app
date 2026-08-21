@@ -226,48 +226,124 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
     const today = new Date();
     
     const sampleId = `sample_${Date.now()}`;
-    const schedules = [];
+    const schedules: any[] = [];
     
-    // Generate 30 days of data
-    for (let i = 29; i >= 0; i--) {
+    // Generate 32 days of daily training load and conditioning data
+    for (let i = 31; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const monthStr = String(d.getMonth() + 1).padStart(2, '0');
       const dStr = String(d.getDate()).padStart(2, '0');
       const dateStr = `${monthStr}/${dStr}`;
+
+      const dayOfWeek = d.getDay(); // 0: 일, 1: 월 ...
+      const isRestDay = dayOfWeek === 1; // 월요일 휴식
+      const isGameDay = dayOfWeek === 0 || dayOfWeek === 6 || dayOfWeek === 4; // 경기일
+
+      let matchDur = 0;
+      let matchRpe = 0;
+      let weightDur = 0;
+      let weightRpe = 0;
+      let skillDur = 0;
+      let skillRpe = 0;
+
+      if (isRestDay) {
+        // Rest day - minimal stretch or light recovery
+        weightDur = 0;
+        weightRpe = 0;
+        skillDur = 0;
+        skillRpe = 0;
+      } else if (isGameDay) {
+        matchDur = 110 + Math.floor(Math.random() * 25); // 110 ~ 135분
+        matchRpe = 7 + Math.floor(Math.random() * 2); // 7 ~ 8
+        weightDur = 30;
+        weightRpe = 5;
+        skillDur = 35;
+        skillRpe = 6;
+      } else {
+        const pattern = i % 3;
+        if (pattern === 0) {
+          weightDur = 60 + Math.floor(Math.random() * 20); // 60 ~ 80분
+          weightRpe = 6 + Math.floor(Math.random() * 2); // 6 ~ 7
+          skillDur = 60 + Math.floor(Math.random() * 20); // 60 ~ 80분
+          skillRpe = 6;
+        } else if (pattern === 1) {
+          weightDur = 45;
+          weightRpe = 5;
+          skillDur = 75 + Math.floor(Math.random() * 20); // 75 ~ 95분
+          skillRpe = 7;
+        } else {
+          weightDur = 50;
+          weightRpe = 6;
+          skillDur = 50;
+          skillRpe = 5;
+        }
+      }
+
+      const totalDuration = matchDur + weightDur + skillDur;
+      const totalLoad = (matchDur * matchRpe) + (weightDur * weightRpe) + (skillDur * skillRpe);
+      const avgRpe = totalDuration > 0 ? Number((totalLoad / totalDuration).toFixed(1)) : 0;
+
+      // Base grip values around 47~51kg
+      const gripLeft = 45 + Math.floor(Math.random() * 5); // 45 ~ 49
+      const gripRight = 48 + Math.floor(Math.random() * 5); // 48 ~ 52
+      const grip = Number(((gripLeft + gripRight) / 2).toFixed(1));
       
-      const acwr = 0.8 + (Math.random() * 0.7); // 0.8 to 1.5
-      const gripLeft = 40 + Math.floor(Math.random() * 10);
-      const gripRight = 42 + Math.floor(Math.random() * 10);
-      const grip = (gripLeft + gripRight) / 2;
-      const sleep = 5 + (Math.random() * 4); // 5 to 9 hours
+      // Sleep between 6.8h and 8.4h
+      const sleepHours = Number((7.0 + (Math.random() * 1.4)).toFixed(1));
       
+      // 1. Daily Conditioning & Training Load Log
       schedules.push({
+        id: `sched_${sampleId}_${i}_cond`,
         date: dateStr,
         title: '[컨디셔닝] 당일 지표 측정',
         place: '트레이닝 센터',
-        acwr: parseFloat(acwr.toFixed(2)),
-        grip: parseFloat(grip.toFixed(1)),
+        time: '10:00',
+        duration: totalDuration,
+        rpe: avgRpe,
+        grip: grip,
         gripLeft: gripLeft,
         gripRight: gripRight,
-        sleep: parseFloat(sleep.toFixed(2)),
-        sleepStart: '23:00',
-        sleepEnd: '07:00'
+        sleep: sleepHours,
+        sleepStart: '23:30',
+        sleepEnd: '07:30',
+        sessions: [
+          { id: 'match', name: '경기', duration: matchDur || '', rpe: matchRpe || '', isFixed: true },
+          { id: 'weight', name: '웨이트 트레이닝', duration: weightDur || '', rpe: weightRpe || '', isFixed: true },
+          { id: 'skill', name: '기술 훈련', duration: skillDur || '', rpe: skillRpe || '', isFixed: true }
+        ]
       });
+
+      // 2. Add Match / Training schedule event for Schedule Tab
+      if (isGameDay) {
+        schedules.push({
+          id: `sched_${sampleId}_${i}_game`,
+          date: dateStr,
+          title: '[경기] 정규 시즌 공식 경기',
+          place: '잠실 야구장 메인 그라운드',
+          time: '18:30',
+          duration: matchDur,
+          rpe: matchRpe
+        });
+      }
     }
+
+    const sampleNames = ["김샘플", "박도현", "이준우", "최태성", "정민규"];
+    const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+    const randomNum = String(Math.floor(10 + Math.random() * 89));
 
     let samplePlayer = {
       ...BASE_PLAYER_TEMPLATE,
       id: sampleId,
-      name: "김샘플",
+      name: randomName,
       team: "서울 스나이퍼스",
-      age: "1995-05-15",
+      age: "1997-06-20",
       position: "투수",
-      number: "42",
+      number: randomNum,
       handedness: "우투우타",
       salary: "150,000,000원",
       role: "player",
-      status: "warning",
+      status: "optimal",
       profileImg: "https://images.unsplash.com/photo-1542385151-efd9000785a0?w=150",
       schedules: schedules
     };
@@ -275,6 +351,7 @@ export default function MainApp({ currentUser, onLogout }: { currentUser: any, o
     samplePlayer = rebuildChartsFromSchedules(samplePlayer);
     
     updatePlayer(sampleId, samplePlayer);
+    setActivePlayerId(sampleId);
   };
 
   const renderPlayerDetails = (p: any) => {

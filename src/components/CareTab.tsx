@@ -13,7 +13,7 @@ import {
   ReferenceArea,
   ResponsiveContainer
 } from 'recharts';
-import { downloadSampleCSV, rebuildChartsFromSchedules, isAcwrSufficient } from '../utils';
+import { downloadSampleCSV, rebuildChartsFromSchedules, isAcwrSufficient, calculateACWR, parseToDateObj, getFirstTrainingDate } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
 import { useModalHistory } from '../hooks/useModalHistory';
 
@@ -197,26 +197,53 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   useModalHistory(deleteConfirmModal.isOpen, () => setDeleteConfirmModal({ isOpen: false, index: null, type: null }));
 
   const currentYear = new Date().getFullYear();
-  const realCareSchedules = (player.schedules?.filter((s: any) => s.title?.includes('[컨디셔닝]')) || []).slice().reverse();
+  const realCareSchedules = (player.schedules?.filter((s: any) => 
+    s.title === '[컨디셔닝] 당일 지표 측정' || 
+    s.title?.includes('[컨디셔닝]')
+  ) || []).slice().reverse();
 
-  const gripHistoryData = realCareSchedules.filter((s: any) => s.gripLeft > 0 || s.gripRight > 0 || s.grip > 0).map((s: any) => ({
-    id: s.date,
+  const gripHistoryData = realCareSchedules.filter((s: any) => s.gripLeft > 0 || s.gripRight > 0 || s.grip > 0).map((s: any, idx: number) => ({
+    id: s.id ? `grip-${s.id}` : `grip-${s.date}-${idx}`,
+    rawDate: s.date,
     date: `${currentYear}-${s.date.replace('/', '-')}`,
-    left: s.gripLeft || 0,
-    right: s.gripRight || 0,
-    grip: s.grip || 0
+    left: s.gripLeft || s.grip || 0,
+    right: s.gripRight || s.grip || 0,
+    grip: s.grip || ((Number(s.gripLeft || 0) + Number(s.gripRight || 0)) / 2) || 0
   }));
 
-  const acwrHistoryData = realCareSchedules.filter((s: any) => s.rpe > 0 || s.duration > 0).map((s: any) => ({
-    id: s.date,
-    date: `${currentYear}-${s.date.replace('/', '-')}`,
-    rpe: s.rpe || 0,
-    duration: s.duration || 0,
-    acwr: s.acwr || 0
-  }));
+  const firstDate = getFirstTrainingDate(player?.schedules || []);
 
-  const sleepHistoryData = realCareSchedules.filter((s: any) => s.sleep > 0).map((s: any) => ({
-    id: s.date,
+  const acwrHistoryData = realCareSchedules.filter((s: any) => (s.rpe !== undefined && Number(s.rpe) > 0) || (s.duration !== undefined && Number(s.duration) > 0) || s.acwr !== undefined).map((s: any, idx: number) => {
+    const targetDate = parseToDateObj(s.date, new Date()) || new Date(`${currentYear}-${s.date.replace('/', '-')}`);
+    
+    // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDate)의 경과 일수 계산
+    let diffDays = 0;
+    if (firstDate) {
+      const diffTime = new Date(targetDate).getTime() - new Date(firstDate).getTime();
+      diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    let calculatedAcwr = 0; // ACWR 기본값을 무조건 0으로 강제 설정
+
+    // 2. 21일이 경과했을 때만 진짜 계산식을 실행하도록 락(Lock) 걸기
+    if (firstDate && diffDays >= 21) {
+      calculatedAcwr = calculateACWR(player.schedules || [], s.date);
+    }
+
+    // 3. 데이터 반환 (21일 미만인 날짜는 calculatedAcwr가 0인 상태로 반환됨)
+    return {
+      id: s.id ? `acwr-${s.id}` : `acwr-${s.date}-${idx}`,
+      rawDate: s.date,
+      date: `${currentYear}-${s.date.replace('/', '-')}`,
+      rpe: s.rpe || 0,
+      duration: s.duration || 0,
+      acwr: calculatedAcwr
+    };
+  });
+
+  const sleepHistoryData = realCareSchedules.filter((s: any) => s.sleep > 0).map((s: any, idx: number) => ({
+    id: s.id ? `sleep-${s.id}` : `sleep-${s.date}-${idx}`,
+    rawDate: s.date,
     date: `${currentYear}-${s.date.replace('/', '-')}`,
     duration: s.sleep || 0,
     sleepStart: s.sleepStart || '00:00',
@@ -225,16 +252,16 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
 
   const handleDeleteHistory = () => {
     let p = JSON.parse(JSON.stringify(player));
-    const dateStr = deleteConfirmModal.index;
-    if (dateStr) {
+    const targetIdentifier = deleteConfirmModal.index;
+    if (targetIdentifier) {
       if (deleteConfirmModal.type === 'grip') {
-        const schedule = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+        const schedule = p.schedules.find((s: any) => s.id === targetIdentifier || s.date === targetIdentifier && s.title?.includes('[컨디셔닝]'));
         if (schedule) { schedule.grip = 0; schedule.gripLeft = 0; schedule.gripRight = 0; }
       } else if (deleteConfirmModal.type === 'sleep') {
-        const schedule = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+        const schedule = p.schedules.find((s: any) => s.id === targetIdentifier || s.date === targetIdentifier && s.title?.includes('[컨디셔닝]'));
         if (schedule) { schedule.sleep = 0; schedule.sleepStart = ''; schedule.sleepEnd = ''; }
       } else if (deleteConfirmModal.type === 'acwr') {
-        const schedule = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+        const schedule = p.schedules.find((s: any) => s.id === targetIdentifier || s.date === targetIdentifier && s.title?.includes('[컨디셔닝]'));
         if (schedule) { schedule.rpe = 0; schedule.duration = 0; }
       }
       p = rebuildChartsFromSchedules(p);
@@ -373,7 +400,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                           <span className="text-gray-400 text-[12px] bg-black/30 px-2 py-0.5 rounded-md font-medium">{getWeekOfMonth(item.date)}주차 기록</span>
                         </div>
                         <button
-                          onClick={() => setDeleteConfirmModal({ isOpen: true, index: item.id, type: isGrip ? 'grip' : isAcwr ? 'acwr' : 'sleep' })}
+                          onClick={() => setDeleteConfirmModal({ isOpen: true, index: item.rawDate || item.id, type: isGrip ? 'grip' : isAcwr ? 'acwr' : 'sleep' })}
                           className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center shrink-0"
                         >
                           <span className="material-icons-round text-[18px]">delete</span>
@@ -494,8 +521,8 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const monthStr = String(todayObj.getMonth() + 1).padStart(2, '0');
   const dStr = String(todayObj.getDate()).padStart(2, '0');
   const todayDateStr = `${monthStr}/${dStr}`;
-  const todayCare = player.schedules?.find((s: any) => s.date === todayDateStr && s.title?.includes('[컨디셔닝]'));
-  const todayLoad = todayCare ? (todayCare.rpe || 0) * (todayCare.duration || 0) : null;
+  const todayCare = player.schedules?.find((s: any) => s.date === todayDateStr && (s.title?.includes('[컨디셔닝]') || s.title === '[컨디셔닝] 당일 지표 측정' || s.duration > 0 || s.rpe > 0 || s.sleep > 0 || s.grip > 0));
+  const todayLoad = todayCare && (todayCare.duration > 0 || todayCare.rpe > 0) ? Math.round((todayCare.rpe || 0) * (todayCare.duration || 0)) : (player.metrics?.rpe && player.metrics?.duration ? Math.round(player.metrics.rpe * player.metrics.duration) : null);
 
   const isAcwrSufficientData = isAcwrSufficient(player?.schedules);
   const latestAcwr = isAcwrSufficientData ? (player.metrics?.acwr ?? 0) : 0;
@@ -505,9 +532,36 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const acwrStatusIcon = (!isAcwrSufficientData || latestAcwr === 0) ? 'analytics' : isAcwrEmpty ? 'info' : latestAcwr >= 1.5 ? 'warning' : latestAcwr >= 1.3 ? 'warning' : 'check_circle';
   const acwrStatusText = (!isAcwrSufficientData || latestAcwr === 0) ? '기준 부하량 분석 중' : isAcwrEmpty ? '측정값 없음' : latestAcwr >= 1.5 ? '부상 위험' : latestAcwr >= 1.3 ? '주의' : '최적';
 
-  const maxAcwrVal = Math.max(2.0, ...(player.acwrGraphData || []).map((d: any) => d.acwr || 0));
+  const acwrChartData = (player.acwrGraphData || []).slice(-7).map((item: any) => {
+    const targetDateStr = item.date === '오늘' ? todayDateStr : item.date;
+    const targetDate = parseToDateObj(targetDateStr, todayObj) || new Date();
+
+    // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDate)의 경과 일수 계산
+    let diffDays = 0;
+    if (firstDate) {
+      const diffTime = new Date(targetDate).getTime() - new Date(firstDate).getTime();
+      diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    let calculatedAcwr = 0; // ACWR 기본값을 무조건 0으로 강제 설정
+
+    // 2. 21일이 경과했을 때만 진짜 계산식을 실행하도록 락(Lock) 걸기
+    if (firstDate && diffDays >= 21) {
+      // [이곳에만 기존의 급성 부하 / 만성 부하 계산 코드를 넣어서 calculatedAcwr 변수에 할당할 것]
+      calculatedAcwr = calculateACWR(player.schedules || [], targetDateStr);
+    }
+
+    // 3. 데이터 반환 (21일 미만인 날짜는 calculatedAcwr가 0인 상태로 반환됨)
+    return {
+      ...item,
+      date: item.date, // 차트 x축 날짜
+      acwr: calculatedAcwr // 21일 미만이면 무조건 0, 이상이면 정상 계산값
+    };
+  });
+
+  const maxAcwrVal = Math.max(2.0, ...acwrChartData.map((d: any) => d.acwr || 0));
   const acwrYAxisMax = maxAcwrVal > 2.0 ? Math.ceil(maxAcwrVal * 2) / 2 : 2.0;
-  const acwrYAxisTicks = [0.5, 0.8, 1.3, 1.5];
+  const acwrYAxisTicks = [0, 0.5, 0.8, 1.3, 1.5];
   for (let i = 2.0; i <= acwrYAxisMax; i += 0.5) {
     acwrYAxisTicks.push(i);
   }
@@ -801,12 +855,26 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                       onBlur={e => {
                         const val = Number(e.target.value);
                         let p = JSON.parse(JSON.stringify(player));
-                        if (p.gripChartData && p.gripChartData.leftValues && p.gripChartData.leftValues.length > 0) {
-                          p.gripChartData.leftValues[p.gripChartData.leftValues.length - 1] = val;
-                          if (!p.metrics) p.metrics = {};
-                          p.metrics.gripRaw = (val + gripRightToday) / 2;
-                          onUpdatePlayer(p);
+                        const today = new Date();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const d = String(today.getDate()).padStart(2, '0');
+                        const dateStr = `${month}/${d}`;
+                        p.schedules = p.schedules || [];
+                        const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+                        if (existing) {
+                          existing.gripLeft = val;
+                          existing.grip = (val + (existing.gripRight || gripRightToday)) / 2;
+                        } else {
+                          p.schedules.push({
+                            date: dateStr,
+                            title: '[컨디셔닝] 당일 지표 측정',
+                            gripLeft: val,
+                            gripRight: gripRightToday,
+                            grip: (val + gripRightToday) / 2
+                          });
                         }
+                        p = rebuildChartsFromSchedules(p);
+                        onUpdatePlayer(p);
                       }}
                       placeholder="0"
                       className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
@@ -859,12 +927,26 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                       onBlur={e => {
                         const val = Number(e.target.value);
                         let p = JSON.parse(JSON.stringify(player));
-                        if (p.gripChartData && p.gripChartData.rightValues && p.gripChartData.rightValues.length > 0) {
-                          p.gripChartData.rightValues[p.gripChartData.rightValues.length - 1] = val;
-                          if (!p.metrics) p.metrics = {};
-                          p.metrics.gripRaw = (gripLeftToday + val) / 2;
-                          onUpdatePlayer(p);
+                        const today = new Date();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const d = String(today.getDate()).padStart(2, '0');
+                        const dateStr = `${month}/${d}`;
+                        p.schedules = p.schedules || [];
+                        const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+                        if (existing) {
+                          existing.gripRight = val;
+                          existing.grip = ((existing.gripLeft || gripLeftToday) + val) / 2;
+                        } else {
+                          p.schedules.push({
+                            date: dateStr,
+                            title: '[컨디셔닝] 당일 지표 측정',
+                            gripLeft: gripLeftToday,
+                            gripRight: val,
+                            grip: (gripLeftToday + val) / 2
+                          });
                         }
+                        p = rebuildChartsFromSchedules(p);
+                        onUpdatePlayer(p);
                       }}
                       placeholder="0"
                       className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
@@ -895,7 +977,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
 
       <div className="card-chart">
         <div className="flex flex-col gap-2 mb-4">
-          <h4 className="text-left m-0 text-[13px]">ACWR (급성/만성 부하 비율) 추이 그래프</h4>
+          <h4 className="text-left m-0 text-[13px]">최근 7일 ACWR (급성/만성 부하 비율) 추이</h4>
           <div className="flex justify-end">
             <button 
               onClick={() => setShowPastAcwrModal(true)}
@@ -922,14 +1004,14 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={player.acwrGraphData || []}
+                data={acwrChartData}
                 margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                 <XAxis dataKey="date" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis domain={[0.5, acwrYAxisMax]} ticks={acwrYAxisTicks} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} />
+                <YAxis domain={[0, acwrYAxisMax]} ticks={acwrYAxisTicks} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} />
                 <Tooltip content={<CustomTooltip />} />
-                <ReferenceArea y1={0.5} y2={0.8} {...{fill: "rgba(255,255,255,0.05)", fillOpacity: 1}} />
+                <ReferenceArea y1={0} y2={0.8} {...{fill: "rgba(255,255,255,0.05)", fillOpacity: 1}} />
                 <ReferenceArea y1={0.8} y2={1.3} {...{fill: "#4ade80", fillOpacity: 0.15}} />
                 <ReferenceArea y1={1.3} y2={1.5} {...{fill: "#facc15", fillOpacity: 0.15}} />
                 <ReferenceArea y1={1.5} y2={acwrYAxisMax} {...{fill: "#ef4444", fillOpacity: 0.15}} />

@@ -121,9 +121,10 @@ export function parseToDateObj(dateVal: any, referenceDate: Date = new Date()): 
       const m = parseInt(parts[0], 10);
       const d = parseInt(parts[1], 10);
       if (!isNaN(m) && !isNaN(d) && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-        let yr = referenceDate.getFullYear();
+        const yr = referenceDate.getFullYear();
         let dateObj = new Date(yr, m - 1, d, 0, 0, 0, 0);
-        if (dateObj.getTime() - referenceDate.getTime() > 86400000 * 2) {
+        // If the date is more than 30 days in the future, it was likely from late last year
+        if (dateObj.getTime() - referenceDate.getTime() > 86400000 * 30) {
           dateObj.setFullYear(yr - 1);
         }
         return dateObj;
@@ -142,42 +143,36 @@ export function parseScheduleDateToObj(dateStr: string, referenceYear: number = 
   return parseToDateObj(dateStr, new Date(referenceYear, 0, 1));
 }
 
-export function getFirstTrainingDate(schedules: any[], targetDateObj: Date = new Date()): Date | null {
+export function getFirstTrainingDate(schedules: any[]): Date | null {
   if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null;
-  const targetMidnight = new Date(targetDateObj.getFullYear(), targetDateObj.getMonth(), targetDateObj.getDate(), 0, 0, 0, 0);
 
-  const trainingRecords = schedules.filter(s => {
-    if (!s || !s.date) return false;
-    const dObj = parseToDateObj(s.date, targetMidnight);
-    if (!dObj) return false;
-    if (dObj.getTime() > targetMidnight.getTime()) return false;
-    return (
+  const validDates: Date[] = [];
+
+  schedules.forEach(s => {
+    if (!s || !s.date) return;
+    const dObj = parseToDateObj(s.date);
+    if (!dObj) return;
+
+    if (
       (s.rpe !== undefined && Number(s.rpe) > 0) ||
       (s.duration !== undefined && Number(s.duration) > 0) ||
-      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정'))) ||
-      s.acwr !== undefined
-    );
-  });
-
-  const pool = trainingRecords.length > 0 ? trainingRecords : schedules.filter(s => {
-    if (!s || !s.date) return false;
-    const dObj = parseToDateObj(s.date, targetMidnight);
-    return dObj && dObj.getTime() <= targetMidnight.getTime();
-  });
-
-  if (pool.length === 0) return null;
-
-  let earliestDate: Date | null = null;
-  pool.forEach(s => {
-    if (!s || !s.date) return;
-    const dObj = parseToDateObj(s.date, targetMidnight);
-    if (!dObj) return;
-    if (!earliestDate || dObj.getTime() < earliestDate.getTime()) {
-      earliestDate = dObj;
+      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
+    ) {
+      validDates.push(dObj);
     }
   });
 
-  return earliestDate;
+  if (validDates.length === 0) {
+    schedules.forEach(s => {
+      if (!s || !s.date) return;
+      const dObj = parseToDateObj(s.date);
+      if (dObj) validDates.push(dObj);
+    });
+  }
+
+  if (validDates.length === 0) return null;
+
+  return new Date(Math.min(...validDates.map(d => d.getTime())));
 }
 
 export function isAcwrSufficient(schedules: any[], targetDateStr?: string): boolean {
@@ -195,31 +190,11 @@ export function isAcwrSufficient(schedules: any[], targetDateStr?: string): bool
     }
   }
 
-  const records = schedules.filter(s => {
-    if (!s || !s.date) return false;
-    const dObj = parseToDateObj(s.date, currentDate);
-    if (!dObj) return false;
-    if (dObj.getTime() > currentDate.getTime()) return false;
-    return (
-      (s.rpe !== undefined && Number(s.rpe) > 0) ||
-      (s.duration !== undefined && Number(s.duration) > 0) ||
-      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
-    );
-  });
-
-  if (!records || records.length === 0) {
+  const firstDate = getFirstTrainingDate(schedules);
+  if (!firstDate) {
     return false;
   }
 
-  const validDates = records
-    .map(r => parseToDateObj(r.date, currentDate))
-    .filter((d): d is Date => d !== null);
-
-  if (validDates.length === 0) {
-    return false;
-  }
-
-  const firstDate = new Date(Math.min(...validDates.map(d => d.getTime())));
   const diffTime = currentDate.getTime() - firstDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
@@ -236,141 +211,189 @@ export function calculateACWR(schedules: any[], targetDateStr: string): number {
   const now = new Date();
   const targetDateObj = parseToDateObj(targetDateStr, now) || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
-  // Filter valid training/conditioning records up to targetDateObj
-  const records = schedules.filter(s => {
-    if (!s || !s.date) return false;
-    const dObj = parseToDateObj(s.date, targetDateObj);
-    if (!dObj) return false;
-    if (dObj.getTime() > targetDateObj.getTime()) return false;
-    return (
-      (s.rpe !== undefined && Number(s.rpe) > 0) ||
-      (s.duration !== undefined && Number(s.duration) > 0) ||
-      (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
-    );
-  });
-
-  if (!records || records.length === 0) {
+  // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDateObj)의 경과 일수 계산
+  const firstDate = getFirstTrainingDate(schedules);
+  if (!firstDate) {
     return 0;
   }
 
-  const validDates = records
-    .map(r => parseToDateObj(r.date, targetDateObj))
-    .filter((d): d is Date => d !== null);
-
-  if (validDates.length === 0) {
-    return 0;
-  }
-
-  // 1. 최초 기록 날짜(firstDate) 구하기
-  const firstDate = new Date(Math.min(...validDates.map(d => d.getTime())));
-
-  // 2. 밀리초(ms) 단위로 정확히 빼서 일(day) 수 계산 (targetDateObj 기준)
   const diffTime = targetDateObj.getTime() - firstDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-  // 3. 안전장치: 최초 기록일로부터 21일 미만 경과 시 무조건 0 반환
-  if (diffDays < 21) {
-    return 0;
-  }
-  
-  // 1. 연속된 달력(Date) 배열 생성 및 0 채우기 (Data Padding)
-  // targetDateObj 기준 최근 28일의 연속된 날짜 배열 생성
-  const past28Days: { dateStr: string; dateObj: Date }[] = [];
-  for (let i = 0; i < 28; i++) {
-    const d = new Date(targetDateObj);
-    d.setDate(d.getDate() - i);
-    d.setHours(0, 0, 0, 0);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    past28Days.push({ dateStr: `${month}/${day}`, dateObj: d });
-  }
+  let calculatedAcwr = 0; // ACWR 기본값을 무조건 0으로 강제 설정
 
-  const dailyWorkloads: Record<string, number> = {};
+  // 2. 21일이 경과했을 때만 진짜 계산식을 실행하도록 락(Lock) 걸기
+  if (diffDays >= 21) {
+    // targetDateObj 기준 최근 28일의 연속된 날짜 배열 생성
+    const past28Days: { dateStr: string; dateObj: Date }[] = [];
+    for (let i = 0; i < 28; i++) {
+      const d = new Date(targetDateObj);
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      past28Days.push({ dateStr: `${month}/${day}`, dateObj: d });
+    }
 
-  past28Days.forEach(({ dateStr, dateObj }) => {
-    // 해당 날짜에 입력된 실제 훈련 기록이 존재하면 그 일일 부하를 가져옴
-    const daySchedules = schedules.filter(s => {
-      if (!s || !s.date) return false;
-      const parsed = parseToDateObj(s.date, dateObj);
-      if (parsed) {
-        return parsed.getTime() === dateObj.getTime();
-      }
-      return s.date === dateStr;
+    const dailyWorkloads: Record<string, number> = {};
+
+    past28Days.forEach(({ dateStr, dateObj }) => {
+      const daySchedules = schedules.filter(s => {
+        if (!s || !s.date) return false;
+        const parsed = parseToDateObj(s.date, dateObj);
+        if (parsed) {
+          return parsed.getTime() === dateObj.getTime();
+        }
+        return s.date === dateStr;
+      });
+
+      let dailyLoad = 0;
+      daySchedules.forEach(s => {
+        const duration = Number(s.duration) || 0;
+        const rpe = Number(s.rpe) || 0;
+        dailyLoad += duration * rpe;
+      });
+
+      dailyWorkloads[dateStr] = dailyLoad;
     });
 
-    let dailyLoad = 0;
-    daySchedules.forEach(s => {
-      const duration = Number(s.duration) || 0;
-      const rpe = Number(s.rpe) || 0;
-      dailyLoad += duration * rpe;
-    });
+    // 최근 7일 총합 (급성 부하)
+    let acuteLoad = 0;
+    for (let i = 0; i < 7; i++) {
+      acuteLoad += dailyWorkloads[past28Days[i].dateStr] || 0;
+    }
 
-    // 기록이 없으면 0으로 자동 할당
-    dailyWorkloads[dateStr] = dailyLoad;
-  });
+    // 최근 28일 일평균 부하 (만성 부하)
+    let chronicLoadSum = 0;
+    for (let i = 0; i < 28; i++) {
+      chronicLoadSum += dailyWorkloads[past28Days[i].dateStr] || 0;
+    }
 
-  // 2. 0이 채워진 연속 배열을 바탕으로 급성/만성 계산
-  // 최근 7일 총합 (급성 부하)
-  let acuteLoad = 0;
-  for (let i = 0; i < 7; i++) {
-    acuteLoad += dailyWorkloads[past28Days[i].dateStr] || 0;
+    // 만성 부하 (28일 총합 / 4 = 7일 기준 평균)
+    const chronicLoad = chronicLoadSum / 4;
+
+    if (chronicLoad > 0) {
+      const acwr = acuteLoad / chronicLoad;
+      calculatedAcwr = Number(acwr.toFixed(2));
+    }
   }
 
-  // 최근 28일 일평균 부하 (만성 부하)
-  let chronicLoadSum = 0;
-  for (let i = 0; i < 28; i++) {
-    chronicLoadSum += dailyWorkloads[past28Days[i].dateStr] || 0;
-  }
-
-  // 만성 부하 (28일 총합 / 4 = 7일 기준 평균)
-  const chronicLoad = chronicLoadSum / 4;
-
-  if (chronicLoad === 0) return 0;
-  const acwr = acuteLoad / chronicLoad;
-  return Number(acwr.toFixed(2));
+  // 3. 데이터 반환 (21일 미만인 날짜는 calculatedAcwr가 0인 상태로 반환됨)
+  return calculatedAcwr;
 }
 
 export const rebuildChartsFromSchedules = (player: any) => {
   const p = { ...player };
   if (!p.schedules) p.schedules = [];
   
-  // Filter out any schedules that don't match MM/DD format (e.g. YYYY-MM-DD ones that aren't on calendar)
-  p.schedules = p.schedules.filter((s: any) => typeof s.date === 'string' && s.date.includes('/') && s.date.length === 5);
-
-  // Sort schedules by date
-  const sortedSchedules = [...p.schedules].sort((a, b) => a.date.localeCompare(b.date));
-  
-  // Filter for care events
-  const careEvents = sortedSchedules.filter((s: any) => s.title === '[컨디셔닝] 당일 지표 측정');
-  
-  // Take the last 7
-  const recentCare = careEvents.slice(-7);
-  
   const d = new Date();
   const todayStr = String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 
+  // Filter out any schedules that don't match MM/DD format (e.g. YYYY-MM-DD ones that aren't on calendar)
+  p.schedules = p.schedules.filter((s: any) => typeof s.date === 'string' && s.date.includes('/') && s.date.length === 5);
+
+  // Sort schedules by actual date
+  const sortedSchedules = [...p.schedules].sort((a, b) => {
+    const da = parseToDateObj(a.date, d)?.getTime() || 0;
+    const db = parseToDateObj(b.date, d)?.getTime() || 0;
+    return da - db;
+  });
+
+  // Group schedules by unique date so each day has exactly one consolidated care/metrics data point
+  const dateMap = new Map<string, any>();
+  for (const s of sortedSchedules) {
+    if (!s.date) continue;
+    const existing = dateMap.get(s.date);
+    const isConditioning = s.title === '[컨디셔닝] 당일 지표 측정' || s.title?.includes('[컨디셔닝]');
+
+    if (!existing) {
+      dateMap.set(s.date, { ...s });
+    } else {
+      if (isConditioning) {
+        dateMap.set(s.date, {
+          ...existing,
+          ...s,
+          grip: (s.grip !== undefined && Number(s.grip) > 0) ? s.grip : existing.grip,
+          gripLeft: (s.gripLeft !== undefined && Number(s.gripLeft) > 0) ? s.gripLeft : existing.gripLeft,
+          gripRight: (s.gripRight !== undefined && Number(s.gripRight) > 0) ? s.gripRight : existing.gripRight,
+          sleep: (s.sleep !== undefined && Number(s.sleep) > 0) ? s.sleep : existing.sleep,
+          sleepStart: s.sleepStart || existing.sleepStart,
+          sleepEnd: s.sleepEnd || existing.sleepEnd,
+          sessions: s.sessions || existing.sessions
+        });
+      } else {
+        if ((!existing.gripLeft || existing.gripLeft === 0) && s.gripLeft) existing.gripLeft = s.gripLeft;
+        if ((!existing.gripRight || existing.gripRight === 0) && s.gripRight) existing.gripRight = s.gripRight;
+        if ((!existing.grip || existing.grip === 0) && s.grip) existing.grip = s.grip;
+        if ((!existing.sleep || existing.sleep === 0) && s.sleep) existing.sleep = s.sleep;
+        if (!existing.sleepStart && s.sleepStart) existing.sleepStart = s.sleepStart;
+        if (!existing.sleepEnd && s.sleepEnd) existing.sleepEnd = s.sleepEnd;
+      }
+    }
+  }
+  
+  // Filter for care events
+  const careEvents = Array.from(dateMap.values()).filter((s: any) => 
+    s.title === '[컨디셔닝] 당일 지표 측정' || 
+    s.title?.includes('[컨디셔닝]') ||
+    (s.sleep !== undefined && Number(s.sleep) > 0) ||
+    (s.grip !== undefined && Number(s.grip) > 0) ||
+    (s.gripLeft !== undefined && Number(s.gripLeft) > 0) ||
+    (s.gripRight !== undefined && Number(s.gripRight) > 0) ||
+    (s.rpe !== undefined && Number(s.rpe) > 0) ||
+    (s.duration !== undefined && Number(s.duration) > 0)
+  );
+
+  careEvents.sort((a, b) => {
+    const da = parseToDateObj(a.date, d)?.getTime() || 0;
+    const db = parseToDateObj(b.date, d)?.getTime() || 0;
+    return da - db;
+  });
+  
+  // Recent 7 days for grip, sleep, and ACWR charts
+  const recentCare7 = careEvents.slice(-7);
+
   p.gripChartData = {
-      labels: recentCare.map((e: any) => e.date === todayStr ? "오늘" : e.date),
-      values: recentCare.map((e: any) => e.grip || 0),
-      leftValues: recentCare.map((e: any) => e.gripLeft || 0),
-      rightValues: recentCare.map((e: any) => e.gripRight || 0)
+      labels: recentCare7.map((e: any) => e.date === todayStr ? "오늘" : e.date),
+      values: recentCare7.map((e: any) => e.grip || ((Number(e.gripLeft || 0) + Number(e.gripRight || 0)) / 2) || 0),
+      leftValues: recentCare7.map((e: any) => e.gripLeft || e.grip || 0),
+      rightValues: recentCare7.map((e: any) => e.gripRight || e.grip || 0)
   };
   
-  p.sleepChartData = recentCare.map((e: any) => ({
+  p.sleepChartData = recentCare7.map((e: any) => ({
       date: e.date === todayStr ? "오늘" : e.date,
       sleepDuration: e.sleep || 0
   }));
   
-  p.acwrGraphData = recentCare.map((e: any) => {
-      const calculatedAcwr = calculateACWR(p.schedules, e.date);
-      // Update schedule's acwr to be accurate
-      const schedIndex = p.schedules.findIndex((s: any) => s === e);
-      if (schedIndex !== -1) {
-          p.schedules[schedIndex].acwr = calculatedAcwr;
+  const firstDate = getFirstTrainingDate(p.schedules);
+
+  p.acwrGraphData = recentCare7.map((e: any) => {
+      const targetDate = parseToDateObj(e.date, d) || new Date();
+      
+      // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDate)의 경과 일수 계산
+      let diffDays = 0;
+      if (firstDate) {
+        const diffTime = targetDate.getTime() - firstDate.getTime();
+        diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       }
+
+      let calculatedAcwr = 0; // ACWR 기본값을 무조건 0으로 강제 설정
+
+      // 2. 21일이 경과했을 때만 진짜 계산식을 실행하도록 락(Lock) 걸기
+      if (firstDate && diffDays >= 21) {
+        calculatedAcwr = calculateACWR(p.schedules, e.date);
+      }
+
+      // Update schedule's acwr to be accurate
+      const schedIndex = p.schedules.findIndex((s: any) => s.date === e.date && s.title?.includes('[컨디셔닝]'));
+      if (schedIndex !== -1) {
+        p.schedules[schedIndex].acwr = calculatedAcwr;
+      }
+
+      // 3. 데이터 반환 (21일 미만인 날짜는 calculatedAcwr가 0인 상태로 반환됨)
       return {
-          date: e.date === todayStr ? "오늘" : e.date,
-          acwr: calculatedAcwr
+        date: e.date === todayStr ? "오늘" : e.date,
+        acwr: calculatedAcwr
       };
   });
   
@@ -378,20 +401,19 @@ export const rebuildChartsFromSchedules = (player: any) => {
   if (!p.metrics) p.metrics = {};
   p.metrics.acwr = calculateACWR(p.schedules, todayStr);
   
-  const todayCareEvent = recentCare.find((e: any) => e.date === todayStr);
+  const todayCareEvent = careEvents.find((e: any) => e.date === todayStr) || (careEvents.length > 0 ? careEvents[careEvents.length - 1] : null);
   if (todayCareEvent) {
     p.metrics.rpe = todayCareEvent.rpe || 0;
-    p.metrics.gripRaw = todayCareEvent.grip || 0;
-    p.metrics.grip = parseFloat(((todayCareEvent.grip - 50) / 50 * 100).toFixed(1));
+    p.metrics.duration = todayCareEvent.duration || 0;
+    p.metrics.gripRaw = todayCareEvent.grip || ((Number(todayCareEvent.gripLeft || 0) + Number(todayCareEvent.gripRight || 0)) / 2) || 0;
+    p.metrics.grip = parseFloat(((p.metrics.gripRaw - 50) / 50 * 100).toFixed(1));
     p.metrics.sleep = todayCareEvent.sleep || 0;
     
     const acwrSufficient = isAcwrSufficient(p.schedules, todayStr);
     if ((acwrSufficient && p.metrics.acwr >= 1.5) || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
     else if ((acwrSufficient && p.metrics.acwr >= 1.3) || p.metrics.grip <= -5) p.status = "warning";
-    else p.status = "normal";
+    else p.status = "optimal";
   }
 
-
-  
   return p;
 };
