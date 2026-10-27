@@ -13,7 +13,7 @@ import {
   ReferenceArea,
   ResponsiveContainer
 } from 'recharts';
-import { downloadSampleCSV, rebuildChartsFromSchedules, isAcwrSufficient, calculateACWR, parseToDateObj, getFirstTrainingDate } from '../utils';
+import { downloadSampleCSV, rebuildChartsFromSchedules, isAcwrSufficient, calculateACWR, parseToDateObj, getFirstTrainingDate, calculateGripBaselineAvg } from '../utils';
 import ComprehensiveStatusDashboard from './ComprehensiveStatusDashboard';
 import { useModalHistory } from '../hooks/useModalHistory';
 
@@ -64,19 +64,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const getSleepColor = (duration: number) => {
-  if (duration >= 8.0) return '#4ade80'; // Optimal
-  if (duration >= 6.0) return '#9ca3af'; // Adequate
-  return '#ef4444'; // Deprivation
+  if (duration >= 7.0) return '#4ade80'; // Optimal / Normal
+  if (duration >= 6.0) return '#facc15'; // Warning
+  return '#ef4444'; // Deprivation / Danger
 };
 
 const SleepCustomDot = (props: any) => {
   const { cx, cy, value } = props;
+  if (value === null || value === undefined || value <= 0) return null;
   const color = getSleepColor(value);
   return <circle cx={cx} cy={cy} r={4} fill="#1C2331" stroke={color} strokeWidth={2} />;
 };
 
 const SleepCustomActiveDot = (props: any) => {
   const { cx, cy, value } = props;
+  if (value === null || value === undefined || value <= 0) return null;
   const color = getSleepColor(value);
   return <circle cx={cx} cy={cy} r={6} fill={color} stroke="#fff" strokeWidth={2} />;
 };
@@ -84,14 +86,15 @@ const SleepCustomActiveDot = (props: any) => {
 const SleepCustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const duration = payload[0].value;
+    if (!duration || duration <= 0) return null;
     const hours = Math.floor(duration);
     const minutes = Math.round((duration - hours) * 60);
     
     let comment = "";
-    if (duration >= 8) {
-      comment = "최상의 컨디션을 유지하기 좋은 수면량입니다.";
-    } else if (duration >= 6) {
-      comment = "일반적인 훈련을 소화할 수 있는 적정 수면입니다.";
+    if (duration >= 7.0) {
+      comment = duration >= 8.0 ? "최상의 컨디션을 유지하기 좋은 완벽한 수면량입니다." : "일반적인 훈련을 소화할 수 있는 적정 수면입니다.";
+    } else if (duration >= 6.0) {
+      comment = "수면 시간이 다소 부족하여 회복에 주의가 필요합니다.";
     } else {
       comment = "중추신경계(CNS) 회복 필요! 부상 위험이 증가합니다.";
     }
@@ -100,7 +103,7 @@ const SleepCustomTooltip = ({ active, payload, label }: any) => {
       <div className="bg-[#2D3748] border border-[rgba(255,255,255,0.1)] p-3 rounded-lg shadow-xl">
         <p className="text-gray-400 text-sm mb-1">{label}</p>
         <p className="text-white font-bold text-lg mb-2">{hours}시간 {minutes}분</p>
-        <p className={`text-xs font-medium ${duration >= 8 ? 'text-green-400' : duration >= 6 ? 'text-gray-300' : 'text-red-400'}`}>
+        <p className={`text-xs font-medium ${duration >= 7.0 ? 'text-green-400' : duration >= 6.0 ? 'text-yellow-400' : 'text-red-400'}`}>
           {comment}
         </p>
       </div>
@@ -284,6 +287,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   ]);
   
   const [logGrip, setLogGrip] = useState<number | string>(player?.metrics?.gripRaw ?? 0);
+  const [includeSleep, setIncludeSleep] = useState<boolean>(true);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
 
@@ -477,14 +481,20 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     const logDurationNum = totalDuration;
     const logRpe = totalDuration > 0 ? (totalLoad / totalDuration) : 0;
     
-    const [h1, m1] = sleepStart.split(':').map(Number);
-    const [h2, m2] = sleepEnd.split(':').map(Number);
-    let sleepDuration = 0;
-    if (h1 !== undefined && m1 !== undefined && h2 !== undefined && m2 !== undefined) {
-      let startMin = h1 * 60 + m1;
-      let endMin = h2 * 60 + m2;
-      if (endMin < startMin) endMin += 24 * 60;
-      sleepDuration = Number(((endMin - startMin) / 60).toFixed(2));
+    let sleepDuration: number | null = null;
+    let savedSleepStart = '';
+    let savedSleepEnd = '';
+    if (includeSleep) {
+      const [h1, m1] = sleepStart.split(':').map(Number);
+      const [h2, m2] = sleepEnd.split(':').map(Number);
+      if (h1 !== undefined && m1 !== undefined && h2 !== undefined && m2 !== undefined) {
+        let startMin = h1 * 60 + m1;
+        let endMin = h2 * 60 + m2;
+        if (endMin < startMin) endMin += 24 * 60;
+        sleepDuration = Number(((endMin - startMin) / 60).toFixed(2));
+      }
+      savedSleepStart = sleepStart;
+      savedSleepEnd = sleepEnd;
     }
 
     let p = JSON.parse(JSON.stringify(player));
@@ -502,13 +512,13 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
       p.schedules[existingIndex].gripLeft = gl;
       p.schedules[existingIndex].gripRight = gr;
       p.schedules[existingIndex].sleep = sleepDuration;
-      p.schedules[existingIndex].sleepStart = sleepStart;
-      p.schedules[existingIndex].sleepEnd = sleepEnd;
+      p.schedules[existingIndex].sleepStart = savedSleepStart;
+      p.schedules[existingIndex].sleepEnd = savedSleepEnd;
       p.schedules[existingIndex].rpe = logRpe;
       p.schedules[existingIndex].duration = logDurationNum;
       p.schedules[existingIndex].sessions = trainingSessions;
     } else {
-      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: sleepStart, sleepEnd: sleepEnd, rpe: logRpe, duration: logDurationNum, sessions: trainingSessions });
+      p.schedules.push({ date: dateStr, title: '[컨디셔닝] 당일 지표 측정', place: '트레이닝 센터', grip: overallGrip, gripLeft: gl, gripRight: gr, sleep: sleepDuration, sleepStart: savedSleepStart, sleepEnd: savedSleepEnd, rpe: logRpe, duration: logDurationNum, sessions: trainingSessions });
     }
 
     p = rebuildChartsFromSchedules(p);
@@ -566,36 +576,40 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     acwrYAxisTicks.push(i);
   }
 
-    const latestSleep = player.sleepChartData?.length ? player.sleepChartData[player.sleepChartData.length - 1].sleepDuration : 0;
+  const rawLatestSleep = player.sleepChartData?.length ? player.sleepChartData[player.sleepChartData.length - 1].sleepDuration : 0;
+  const latestSleep = rawLatestSleep !== null && rawLatestSleep !== undefined && Number(rawLatestSleep) > 0 ? Number(rawLatestSleep) : 0;
   const isSleepEmpty = latestSleep === 0;
   const avgSleepCalc = () => {
     if (!player.sleepChartData || player.sleepChartData.length === 0) return null;
-    const valid = player.sleepChartData.filter((d: any) => d.sleepDuration > 0);
+    const valid = player.sleepChartData.filter((d: any) => Number(d.sleepDuration) > 0);
     if (valid.length === 0) return null;
-    return (valid.reduce((acc: any, curr: any) => acc + curr.sleepDuration, 0) / valid.length).toFixed(1);
+    return (valid.reduce((acc: number, curr: any) => acc + Number(curr.sleepDuration), 0) / valid.length).toFixed(1);
   };
   const avgSleep = avgSleepCalc();
 
-  const sleepStatusColor = isSleepEmpty ? 'text-gray-500' : latestSleep < 6 ? 'text-red-500' : latestSleep >= 8 ? 'text-green-500' : 'text-gray-400';
-  const sleepBorderColor = isSleepEmpty ? 'border-gray-500/30' : latestSleep < 6 ? 'border-red-500/30' : latestSleep >= 8 ? 'border-green-500/30' : 'border-white/10';
-  const sleepStatusIcon = isSleepEmpty ? 'info' : latestSleep < 6 ? 'warning' : latestSleep >= 8 ? 'check_circle' : 'info';
-  const sleepStatusText = isSleepEmpty ? '측정값 없음' : latestSleep < 6 ? '부족' : latestSleep >= 8 ? '완벽' : '적정';
+  const sleepStatusColor = isSleepEmpty ? 'text-gray-500' : latestSleep < 6.0 ? 'text-red-500' : latestSleep < 7.0 ? 'text-yellow-500' : 'text-green-500';
+  const sleepBorderColor = isSleepEmpty ? 'border-gray-500/30' : latestSleep < 6.0 ? 'border-red-500/30' : latestSleep < 7.0 ? 'border-yellow-500/30' : 'border-green-500/30';
+  const sleepStatusIcon = isSleepEmpty ? 'info' : latestSleep < 6.0 ? 'warning' : latestSleep < 7.0 ? 'warning_amber' : 'check_circle';
+  const sleepStatusText = isSleepEmpty ? '측정값 없음' : latestSleep < 6.0 ? '부족' : latestSleep < 7.0 ? '주의' : latestSleep >= 8.0 ? '완벽' : '적정';
 
   const getYesterdayGrip = (side: 'left' | 'right') => {
+    // 1. Check the actual yesterday slot (D-1, index length - 2) in the 7-day calendar chart
     const values = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
     if (values && values.length >= 2) {
-      const yesterdayVal = values[values.length - 2];
-      if (yesterdayVal !== undefined && yesterdayVal !== null && yesterdayVal > 0) {
+      const yesterdayVal = Number(values[values.length - 2]);
+      if (!isNaN(yesterdayVal) && yesterdayVal > 0) {
         return yesterdayVal;
       }
     }
+    // 2. Fallback: explicitly check schedules matching actual yesterday's calendar date (MM/DD)
     if (player?.schedules && Array.isArray(player.schedules)) {
+      const yObj = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate() - 1, 0, 0, 0, 0);
+      const yDateStr = `${String(yObj.getMonth() + 1).padStart(2, '0')}/${String(yObj.getDate()).padStart(2, '0')}`;
       const prop = side === 'left' ? 'gripLeft' : 'gripRight';
-      const careEntries = player.schedules.filter((s: any) => s[prop] !== undefined && s[prop] > 0);
-      if (careEntries.length >= 2) {
-        return careEntries[careEntries.length - 2][prop];
-      } else if (careEntries.length === 1 && careEntries[0][prop] > 0) {
-        return careEntries[0][prop];
+      const yesterdayEntries = player.schedules.filter((s: any) => s.date === yDateStr && Number(s[prop]) > 0);
+      if (yesterdayEntries.length > 0) {
+        const condEntry = yesterdayEntries.find((s: any) => s.title?.includes('[컨디셔닝]'));
+        return Number((condEntry || yesterdayEntries[yesterdayEntries.length - 1])[prop]) || 0;
       }
     }
     return 0;
@@ -605,75 +619,23 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
   const yesterdayRight = getYesterdayGrip('right');
 
   const getTop3Avg4Weeks = (side: 'left' | 'right') => {
-    const prop = side === 'left' ? 'gripLeft' : 'gripRight';
     const todayVal = side === 'left' ? gripLeftToday : gripRightToday;
-    const now = new Date();
-    const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
-
-    const values: number[] = [];
-    if (todayVal > 0) {
-      values.push(todayVal);
-    }
-
-    if (player?.schedules && Array.isArray(player.schedules)) {
-      player.schedules.forEach((s: any) => {
-        const val = s[prop];
-        if (typeof val === 'number' && val > 0) {
-          if (s.date) {
-            let schedDate: Date | null = null;
-            if (s.date.includes('-')) {
-              schedDate = new Date(s.date);
-            } else if (s.date.includes('/')) {
-              const parts = s.date.split('/');
-              if (parts.length === 2) {
-                const m = parseInt(parts[0], 10) - 1;
-                const d = parseInt(parts[1], 10);
-                schedDate = new Date(now.getFullYear(), m, d);
-                if (schedDate > now) {
-                  schedDate.setFullYear(now.getFullYear() - 1);
-                }
-              }
-            }
-            if (!schedDate || (schedDate >= twentyEightDaysAgo && schedDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
-              values.push(val);
-            }
-          } else {
-            values.push(val);
-          }
-        }
-      });
-    }
-
-    if (values.length === 0) {
-      const chartValues = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
-      if (Array.isArray(chartValues)) {
-        chartValues.forEach((v: number) => {
-          if (v > 0) values.push(v);
-        });
-      }
-    }
-
-    if (values.length === 0) return 0;
-
-    const top3 = [...values].sort((a, b) => b - a).slice(0, 3);
-    const sum = top3.reduce((acc, curr) => acc + curr, 0);
-    return Number((sum / top3.length).toFixed(1));
+    return calculateGripBaselineAvg(player?.schedules || [], side, todayVal, todayObj);
   };
 
   const avgLeft = getTop3Avg4Weeks('left');
   const avgRight = getTop3Avg4Weeks('right');
 
-  const getGripChange = (yesterday: number, today: number) => {
-    if (yesterday === 0 || today === 0) return 0;
-    return ((today - yesterday) / yesterday) * 100;
+  const getGripChange = (base: number, today: number) => {
+    if (base === 0 || today === 0) return 0;
+    return ((today - base) / base) * 100;
   };
 
   const getGripStatus = (change: number, isEmpty: boolean) => {
     if (isEmpty) return { status: '측정값 없음', colorClass: 'text-gray-500', borderClass: 'border-gray-500/30', bgClass: 'bg-gray-500/10' };
-    if (change >= -4.9) return { status: '최적', colorClass: 'text-green-500', borderClass: 'border-green-500/30', bgClass: 'bg-green-500/10' };
-    if (change >= -9.9) return { status: '주의', colorClass: 'text-yellow-500', borderClass: 'border-yellow-500/30', bgClass: 'bg-yellow-500/10' };
-    if (change >= -14.9) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
-    return { status: '치명적', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
+    if (change <= -10.0) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
+    if (change < -5.0) return { status: '주의', colorClass: 'text-yellow-500', borderClass: 'border-yellow-500/30', bgClass: 'bg-yellow-500/10' };
+    return { status: '최적', colorClass: 'text-green-500', borderClass: 'border-green-500/30', bgClass: 'bg-green-500/10' };
   };
 
   const isLeftEmpty = avgLeft === 0 || gripLeftToday === 0;
@@ -711,8 +673,9 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
              }
              setLogGripLeft(existing.gripLeft || '');
              setLogGripRight(existing.gripRight || '');
-             if (existing.sleepStart) setSleepStart(existing.sleepStart);
-             if (existing.sleepEnd) setSleepEnd(existing.sleepEnd);
+             setIncludeSleep(existing.sleep !== undefined ? Number(existing.sleep) > 0 : true);
+             setSleepStart(existing.sleepStart || '23:00');
+             setSleepEnd(existing.sleepEnd || '07:00');
           } else {
              setTrainingSessions([
                 { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
@@ -721,6 +684,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
              ]);
              setLogGripLeft('');
              setLogGripRight('');
+             setIncludeSleep(true);
              setSleepStart('23:00');
              setSleepEnd('07:00');
           }
@@ -740,6 +704,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
         gripRight={rightChange}
         isEmpty={isAcwrEmpty && isSleepEmpty && isLeftEmpty && isRightEmpty}
         isAcwrSufficient={isAcwrSufficientData}
+        isGripEmpty={isLeftEmpty && isRightEmpty}
       />
 
       <div className="grid grid-cols-2 gap-3" style={{ marginBottom: '12px' }}>
@@ -1052,7 +1017,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="name" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
               <YAxis 
-                domain={['dataMin - 5', 'dataMax + 5']} 
+                domain={[(dataMin: number) => Math.max(0, Math.floor(dataMin - 5)), (dataMax: number) => Math.ceil(dataMax + 5)]} 
                 stroke="#8E9AA8" 
                 tick={{ fill: '#8E9AA8', fontSize: 12 }} 
                 axisLine={false} 
@@ -1076,6 +1041,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                   position="top" 
                   content={(props: any) => {
                     const { x, y, width, value, index } = props;
+                    if (!value || Number(value) <= 0) return null;
                     const isToday = player?.gripChartData?.labels?.[index] === "오늘";
                     return (
                       <g>
@@ -1106,6 +1072,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                   position="top" 
                   content={(props: any) => {
                     const { x, y, width, value, index } = props;
+                    if (!value || Number(value) <= 0) return null;
                     const isToday = player?.gripChartData?.labels?.[index] === "오늘";
                     return (
                       <g>
@@ -1146,19 +1113,19 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
             >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
               <XAxis dataKey="date" stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-              <YAxis domain={[3.0, 12.0]} ticks={[3, 6, 8, 10, 12]} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} unit="시간" />
+              <YAxis domain={[3.0, 12.0]} ticks={[3, 6, 7, 8, 10, 12]} stroke="#8E9AA8" tick={{ fill: '#8E9AA8', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} unit="시간" />
               <Tooltip content={<SleepCustomTooltip />} />
               <ReferenceArea y1={3.0} y2={6.0} {...{fill: "#ef4444", fillOpacity: 0.15}} />
-              <ReferenceArea y1={6.0} y2={8.0} {...{fill: "rgba(255,255,255,0.05)", fillOpacity: 1}} />
-              <ReferenceArea y1={8.0} y2={12.0} {...{fill: "#4ade80", fillOpacity: 0.15}} />
-              <Line type="monotone" dataKey="sleepDuration" stroke="#8E9AA8" strokeWidth={3} dot={<SleepCustomDot />} activeDot={<SleepCustomActiveDot />} name="수면 시간" />
+              <ReferenceArea y1={6.0} y2={7.0} {...{fill: "#facc15", fillOpacity: 0.12}} />
+              <ReferenceArea y1={7.0} y2={12.0} {...{fill: "#4ade80", fillOpacity: 0.15}} />
+              <Line type="monotone" dataKey="sleepDuration" connectNulls={true} stroke="#8E9AA8" strokeWidth={3} dot={<SleepCustomDot />} activeDot={<SleepCustomActiveDot />} name="수면 시간" />
             </LineChart>
           </ResponsiveContainer>
         </div>
         <div className="flex gap-2 mt-2 justify-center">
           <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#ef4444] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">수면 부족<br />(6시간 미만)</span></div>
-          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[rgba(255,255,255,0.2)] mt-[3px]"></span><span className="text-xs text-gray-400">적정 수면<br />(6~8시간)</span></div>
-          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#4ade80] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">완벽 회복<br />(8시간 이상)</span></div>
+          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#facc15] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">주의<br />(6~7시간 미만)</span></div>
+          <div className="flex items-start gap-1.5"><span className="w-3 h-3 rounded-full bg-[#4ade80] opacity-50 mt-[3px]"></span><span className="text-xs text-gray-400">정상 회복<br />(7시간 이상)</span></div>
         </div>
       </div>
 
@@ -1273,11 +1240,30 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               </div>
 
               <div>
-                <label className="text-[13px] font-bold text-white mb-[6px] block">수면 시간</label>
-                <div className="flex flex-col gap-[12px] mt-[6px]">
-                  <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
-                  <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
+                <div className="flex items-center justify-between mb-[6px]">
+                  <label className="text-[13px] font-bold text-white block">수면 시간</label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={includeSleep}
+                      onChange={(e) => setIncludeSleep(e.target.checked)}
+                      className="w-4 h-4 accent-[var(--primary-color)] rounded cursor-pointer"
+                    />
+                    <span className={`text-[12px] font-bold ${includeSleep ? 'text-[var(--primary-color)]' : 'text-gray-400'}`}>
+                      수면 기록 포함
+                    </span>
+                  </label>
                 </div>
+                {includeSleep ? (
+                  <div className="flex flex-col gap-[12px] mt-[6px]">
+                    <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
+                    <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
+                  </div>
+                ) : (
+                  <div className="mt-[6px] py-3 px-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] text-gray-400 text-[12px] text-center font-medium">
+                    수면 시간을 입력하지 않습니다 (측정값 없음 처리)
+                  </div>
+                )}
               </div>
 
               <button className="btn-primary w-full h-[30px] flex items-center justify-center text-[14px] font-bold mt-[12px]" onClick={submitDailyLog}>오늘 부하량 저장</button>

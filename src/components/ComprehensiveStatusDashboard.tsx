@@ -1,5 +1,5 @@
 import React from 'react';
-import { isAcwrSufficient } from '../utils';
+import { isAcwrSufficient, calculateGripBaselineAvg } from '../utils';
 
 interface ComprehensiveStatusDashboardProps {
   acwr: number;
@@ -8,6 +8,7 @@ interface ComprehensiveStatusDashboardProps {
   gripRight: number;
   isEmpty?: boolean;
   isAcwrSufficient?: boolean;
+  isGripEmpty?: boolean;
 }
 
 export const generateConditionAnalysis = ({
@@ -16,7 +17,8 @@ export const generateConditionAnalysis = ({
   gripLeft,
   gripRight,
   isEmpty = false,
-  isAcwrSufficient: isAcwrSufficientProp = true
+  isAcwrSufficient: isAcwrSufficientProp = true,
+  isGripEmpty: isGripEmptyProp
 }: {
   acwr: number;
   sleep: number;
@@ -24,6 +26,7 @@ export const generateConditionAnalysis = ({
   gripRight: number;
   isEmpty?: boolean;
   isAcwrSufficient?: boolean;
+  isGripEmpty?: boolean;
 }) => {
   if (isEmpty) {
     return '충분한 데이터가 누적되지 않았습니다. 매일 지표를 입력하여 선수 컨디션을 관리해 주세요.';
@@ -33,11 +36,11 @@ export const generateConditionAnalysis = ({
   const acwrStatus = isAcwrAnalyzing ? 'analyzing' : acwr >= 1.5 ? 'danger' : acwr >= 1.3 ? 'warning' : 'normal';
 
   const minGripChange = Math.min(gripLeft, gripRight);
-  const isGripEmpty = gripLeft === 0 && gripRight === 0;
-  const gripStatus = isGripEmpty ? 'normal' : minGripChange <= -15 ? 'danger' : minGripChange <= -5 ? 'warning' : 'normal';
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
+  const gripStatus = isGripEmpty ? 'normal' : minGripChange <= -10.0 ? 'danger' : minGripChange < -5.0 ? 'warning' : 'normal';
 
   const isSleepEmpty = sleep === 0;
-  const sleepStatus = isSleepEmpty ? 'normal' : sleep < 5.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
+  const sleepStatus = isSleepEmpty ? 'normal' : sleep < 6.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
 
   const hasIssue = acwrStatus === 'danger' || acwrStatus === 'warning' ||
                    gripStatus === 'danger' || gripStatus === 'warning' ||
@@ -64,8 +67,13 @@ export const generateConditionAnalysis = ({
     if (isOtherIssue) {
       sleepText = `수면(${sleep.toFixed(1)}h)을 통한 기본적인 육체 회복은 정상 범위이나, `;
     }
-  } else if (sleepStatus === 'danger' || sleepStatus === 'warning') {
-    // 수면이 위험/주의일 때
+  } else if (sleepStatus === 'warning') {
+    if (isOtherIssue) {
+      sleepText = `최근 수면 시간이 ${sleep.toFixed(1)}h로 다소 부족하여 회복에 주의가 필요하며, `;
+    } else {
+      sleepText = `최근 수면 시간이 ${sleep.toFixed(1)}h로 다소 부족하여 신체 회복이 지연될 수 있으므로 수면 시간 확보 및 컨디션 조절을 권장합니다.`;
+    }
+  } else if (sleepStatus === 'danger') {
     if (isOtherIssue) {
       sleepText = `최근 수면 시간이 ${sleep.toFixed(1)}h로 부족하여 신체 회복이 심각하게 지연되고 있으며, `;
     } else {
@@ -74,13 +82,19 @@ export const generateConditionAnalysis = ({
   }
 
   let gripText = '';
-  if (gripStatus === 'danger' || gripStatus === 'warning') {
+  if (gripStatus === 'warning') {
+    const changeFormatted = `${minGripChange.toFixed(1)}%`;
+    gripText = `중추신경계 피로도를 나타내는 악력이 평균 대비 ${changeFormatted} 하락하여 주의가 필요합니다. 웨이트 중량 및 훈련 볼륨 조절을 권장합니다. `;
+  } else if (gripStatus === 'danger') {
     const changeFormatted = `${minGripChange.toFixed(1)}%`;
     gripText = `중추신경계 피로도를 나타내는 악력이 평균 대비 ${changeFormatted} 하락하여 위험 수준입니다. 배트 스피드 저하 및 투구/타격 밸런스 붕괴가 우려되므로 고강도 기술 훈련의 즉각적인 조절이 필요합니다. `;
   }
 
   let acwrText = '';
-  if (acwrStatus === 'danger' || acwrStatus === 'warning') {
+  if (acwrStatus === 'warning') {
+    const acwrVal = acwr.toFixed(2);
+    acwrText = `최근 훈련 부하 증가로 ACWR 지표가 ${acwrVal}를 기록하여 피로 누적 주의 단계입니다. 엑스트라 훈련을 자제하고 회복에 집중해 주세요.`;
+  } else if (acwrStatus === 'danger') {
     const acwrVal = acwr.toFixed(2);
     acwrText = `최근 급격한 훈련량 증가로 ACWR 지표가 ${acwrVal}를 기록하며 근골격계 부상 위험이 극대화된 상태입니다.`;
   }
@@ -96,18 +110,19 @@ export const getComprehensiveStatus = (
   gripLeft: number,
   gripRight: number,
   isEmpty: boolean,
-  isAcwrSufficient: boolean = true
+  isAcwrSufficient: boolean = true,
+  isGripEmptyProp?: boolean
 ) => {
   // 1. Evaluate individual indicator statuses
   const isAcwrAnalyzing = !isAcwrSufficient || acwr === 0;
   const acwrStatus = isAcwrAnalyzing ? 'analyzing' : acwr >= 1.5 ? 'danger' : acwr >= 1.3 ? 'warning' : 'normal';
 
   const minGripChange = Math.min(gripLeft, gripRight);
-  const isGripEmpty = gripLeft === 0 && gripRight === 0;
-  const gripStatus = isGripEmpty ? 'empty' : minGripChange <= -15 ? 'danger' : minGripChange <= -5 ? 'warning' : 'normal';
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
+  const gripStatus = isGripEmpty ? 'empty' : minGripChange <= -10.0 ? 'danger' : minGripChange < -5.0 ? 'warning' : 'normal';
 
   const isSleepEmpty = sleep === 0;
-  const sleepStatus = isSleepEmpty ? 'empty' : sleep < 5.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
+  const sleepStatus = isSleepEmpty ? 'empty' : sleep < 6.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
 
   // 2. Determine overall level & badge based on priority rules
   let level = 4;
@@ -174,7 +189,8 @@ export const getComprehensiveStatus = (
     gripLeft,
     gripRight,
     isEmpty,
-    isAcwrSufficient
+    isAcwrSufficient,
+    isGripEmpty
   });
 
   return { level, badgeColor, badgeText, borderColor, icon, briefing };
@@ -182,78 +198,26 @@ export const getComprehensiveStatus = (
 
 export const getPlayerComprehensiveStatus = (player: any) => {
   if (!player) {
-    return getComprehensiveStatus(0, 0, 0, 0, true, false);
+    return getComprehensiveStatus(0, 0, 0, 0, true, false, true);
   }
 
   const isAcwrSufficientData = isAcwrSufficient(player.schedules);
   const latestAcwr = isAcwrSufficientData ? (player.metrics?.acwr ?? 0) : 0;
   const isAcwrEmpty = latestAcwr === 0 || !isAcwrSufficientData;
 
-  const latestSleep = player.sleepChartData?.length 
+  const rawLatestSleep = player.sleepChartData?.length 
     ? player.sleepChartData[player.sleepChartData.length - 1].sleepDuration 
     : 0;
+  const latestSleep = rawLatestSleep !== null && rawLatestSleep !== undefined && Number(rawLatestSleep) > 0 ? Number(rawLatestSleep) : 0;
   const isSleepEmpty = latestSleep === 0;
-
-  const getGrip4WeekAvg = (side: 'left' | 'right') => {
-    const prop = side === 'left' ? 'gripLeft' : 'gripRight';
-    const leftVals = player?.gripChartData?.leftValues || [];
-    const rightVals = player?.gripChartData?.rightValues || [];
-    const todayVal = side === 'left' ? leftVals[leftVals.length - 1] || 0 : rightVals[rightVals.length - 1] || 0;
-    const now = new Date();
-    const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
-
-    const values: number[] = [];
-    if (todayVal > 0) values.push(todayVal);
-
-    if (player?.schedules && Array.isArray(player.schedules)) {
-      player.schedules.forEach((s: any) => {
-        const val = s[prop];
-        if (typeof val === 'number' && val > 0) {
-          if (s.date) {
-            let schedDate: Date | null = null;
-            if (s.date.includes('-')) {
-              schedDate = new Date(s.date);
-            } else if (s.date.includes('/')) {
-              const parts = s.date.split('/');
-              if (parts.length === 2) {
-                const m = parseInt(parts[0], 10) - 1;
-                const d = parseInt(parts[1], 10);
-                schedDate = new Date(now.getFullYear(), m, d);
-                if (schedDate > now) schedDate.setFullYear(now.getFullYear() - 1);
-              }
-            }
-            if (!schedDate || (schedDate >= twentyEightDaysAgo && schedDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
-              values.push(val);
-            }
-          } else {
-            values.push(val);
-          }
-        }
-      });
-    }
-
-    if (values.length === 0) {
-      const chartValues = side === 'left' ? player?.gripChartData?.leftValues : player?.gripChartData?.rightValues;
-      if (Array.isArray(chartValues)) {
-        chartValues.forEach((v: number) => {
-          if (v > 0) values.push(v);
-        });
-      }
-    }
-
-    if (values.length === 0) return 0;
-    const top3 = [...values].sort((a, b) => b - a).slice(0, 3);
-    const sum = top3.reduce((acc, curr) => acc + curr, 0);
-    return Number((sum / top3.length).toFixed(1));
-  };
-
-  const avgLeft = getGrip4WeekAvg('left');
-  const avgRight = getGrip4WeekAvg('right');
 
   const leftValues = player.gripChartData?.leftValues || [];
   const gripLeftToday = leftValues[leftValues.length - 1] || 0;
   const rightValues = player.gripChartData?.rightValues || [];
   const gripRightToday = rightValues[rightValues.length - 1] || 0;
+
+  const avgLeft = calculateGripBaselineAvg(player?.schedules || [], 'left', gripLeftToday);
+  const avgRight = calculateGripBaselineAvg(player?.schedules || [], 'right', gripRightToday);
 
   const getGripChange = (base: number, today: number) => {
     if (base === 0 || today === 0) return 0;
@@ -262,13 +226,14 @@ export const getPlayerComprehensiveStatus = (player: any) => {
 
   const isLeftEmpty = avgLeft === 0 || gripLeftToday === 0;
   const isRightEmpty = avgRight === 0 || gripRightToday === 0;
+  const isGripEmpty = isLeftEmpty && isRightEmpty;
 
   const leftChange = (avgLeft > 0 && gripLeftToday > 0) ? getGripChange(avgLeft, gripLeftToday) : 0;
   const rightChange = (avgRight > 0 && gripRightToday > 0) ? getGripChange(avgRight, gripRightToday) : 0;
 
-  const isEmpty = isAcwrEmpty && isSleepEmpty && isLeftEmpty && isRightEmpty;
+  const isEmpty = isAcwrEmpty && isSleepEmpty && isGripEmpty;
 
-  return getComprehensiveStatus(latestAcwr, latestSleep, leftChange, rightChange, isEmpty, isAcwrSufficientData);
+  return getComprehensiveStatus(latestAcwr, latestSleep, leftChange, rightChange, isEmpty, isAcwrSufficientData, isGripEmpty);
 };
 
 export default function ComprehensiveStatusDashboard({
@@ -277,13 +242,16 @@ export default function ComprehensiveStatusDashboard({
   gripLeft,
   gripRight,
   isEmpty = false,
-  isAcwrSufficient = true
+  isAcwrSufficient = true,
+  isGripEmpty: isGripEmptyProp
 }: ComprehensiveStatusDashboardProps) {
   const [showHelpModal, setShowHelpModal] = React.useState(false);
-  const status = getComprehensiveStatus(acwr, sleep, gripLeft, gripRight, isEmpty, isAcwrSufficient);
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
+  const normalizedSleep = sleep && Number(sleep) > 0 ? Number(sleep) : 0;
+  const status = getComprehensiveStatus(acwr, normalizedSleep, gripLeft, gripRight, isEmpty, isAcwrSufficient, isGripEmpty);
   const { badgeColor, badgeText, borderColor, icon, briefing } = status;
   
-  const asymmetry = !isEmpty && Math.abs(gripLeft - gripRight) >= 15;
+  const asymmetry = !isEmpty && !isGripEmpty && Math.abs(gripLeft - gripRight) >= 15;
 
   const getStatusItem = (type: 'load' | 'recovery' | 'nerve') => {
     if (isEmpty) {
@@ -293,21 +261,20 @@ export default function ComprehensiveStatusDashboard({
     if (type === 'load') {
       if (!isAcwrSufficient || acwr === 0) return { label: '부하 (ACWR)', status: '기준 부하량 분석 중', color: 'text-gray-400', icon: 'analytics' };
       if (acwr >= 1.5) return { label: '부하 (ACWR)', status: '위험', color: 'text-red-500', icon: 'warning' };
-      if (acwr >= 1.3) return { label: '부하 (ACWR)', status: '경고', color: 'text-yellow-500', icon: 'warning_amber' };
+      if (acwr >= 1.3) return { label: '부하 (ACWR)', status: '주의', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '부하 (ACWR)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };
     }
     if (type === 'recovery') {
-      if (sleep === 0) return { label: '회복 (수면)', status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
-      if (sleep < 5.0) return { label: '회복 (수면)', status: '위험', color: 'text-red-500', icon: 'warning' };
-      if (sleep < 7.0) return { label: '회복 (수면)', status: '경고', color: 'text-yellow-500', icon: 'warning_amber' };
+      if (!normalizedSleep || normalizedSleep <= 0) return { label: '회복 (수면)', status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
+      if (normalizedSleep < 6.0) return { label: '회복 (수면)', status: '위험', color: 'text-red-500', icon: 'warning' };
+      if (normalizedSleep < 7.0) return { label: '회복 (수면)', status: '주의', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '회복 (수면)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };
     }
     if (type === 'nerve') {
-      const isGripEmpty = gripLeft === 0 && gripRight === 0;
       if (isGripEmpty) return { label: '신경계 (악력)', status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
       const minGrip = Math.min(gripLeft, gripRight);
-      if (minGrip <= -15) return { label: '신경계 (악력)', status: '위험', color: 'text-red-500', icon: 'warning' };
-      if (minGrip <= -5) return { label: '신경계 (악력)', status: '경고', color: 'text-yellow-500', icon: 'warning_amber' };
+      if (minGrip <= -10.0) return { label: '신경계 (악력)', status: '위험', color: 'text-red-500', icon: 'warning' };
+      if (minGrip < -5.0) return { label: '신경계 (악력)', status: '주의', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '신경계 (악력)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };
     }
     return { label: '', status: '', color: '', icon: '' };

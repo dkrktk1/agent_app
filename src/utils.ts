@@ -143,19 +143,23 @@ export function parseScheduleDateToObj(dateStr: string, referenceYear: number = 
   return parseToDateObj(dateStr, new Date(referenceYear, 0, 1));
 }
 
-export function getFirstTrainingDate(schedules: any[]): Date | null {
+export function getFirstTrainingDate(schedules: any[], referenceDate: Date = new Date()): Date | null {
   if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null;
 
   const validDates: Date[] = [];
 
   schedules.forEach(s => {
     if (!s || !s.date) return;
-    const dObj = parseToDateObj(s.date);
+    const dObj = parseToDateObj(s.date, referenceDate);
     if (!dObj) return;
 
     if (
       (s.rpe !== undefined && Number(s.rpe) > 0) ||
       (s.duration !== undefined && Number(s.duration) > 0) ||
+      (s.sleep !== undefined && Number(s.sleep) > 0) ||
+      (s.grip !== undefined && Number(s.grip) > 0) ||
+      (s.gripLeft !== undefined && Number(s.gripLeft) > 0) ||
+      (s.gripRight !== undefined && Number(s.gripRight) > 0) ||
       (s.title && (s.title.includes('[컨디셔닝]') || s.title.includes('훈련') || s.title.includes('측정')))
     ) {
       validDates.push(dObj);
@@ -165,14 +169,28 @@ export function getFirstTrainingDate(schedules: any[]): Date | null {
   if (validDates.length === 0) {
     schedules.forEach(s => {
       if (!s || !s.date) return;
-      const dObj = parseToDateObj(s.date);
+      const dObj = parseToDateObj(s.date, referenceDate);
       if (dObj) validDates.push(dObj);
     });
   }
 
   if (validDates.length === 0) return null;
 
-  return new Date(Math.min(...validDates.map(d => d.getTime())));
+  // Sort dates in ascending order and deduplicate by timestamp
+  const uniqueTimestamps = Array.from(new Set(validDates.map(d => d.getTime()))).sort((a, b) => a - b);
+  const sortedDates = uniqueTimestamps.map(ts => new Date(ts));
+
+  // Detect 14-day (2 weeks) or longer gap and reset firstDate to the new session start
+  let firstDate = sortedDates[0];
+  for (let i = 1; i < sortedDates.length; i++) {
+    const diffTime = sortedDates[i].getTime() - sortedDates[i - 1].getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays >= 14) {
+      firstDate = sortedDates[i];
+    }
+  }
+
+  return firstDate;
 }
 
 export function isAcwrSufficient(schedules: any[], targetDateStr?: string): boolean {
@@ -190,7 +208,7 @@ export function isAcwrSufficient(schedules: any[], targetDateStr?: string): bool
     }
   }
 
-  const firstDate = getFirstTrainingDate(schedules);
+  const firstDate = getFirstTrainingDate(schedules, currentDate);
   if (!firstDate) {
     return false;
   }
@@ -211,8 +229,8 @@ export function calculateACWR(schedules: any[], targetDateStr: string): number {
   const now = new Date();
   const targetDateObj = parseToDateObj(targetDateStr, now) || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
-  // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDateObj)의 경과 일수 계산
-  const firstDate = getFirstTrainingDate(schedules);
+  // 1. 최초 기록일(firstDate, 14일 이상 공백 시 리셋된 날짜)과 현재 점을 찍을 날짜(targetDateObj)의 경과 일수 계산
+  const firstDate = getFirstTrainingDate(schedules, targetDateObj);
   if (!firstDate) {
     return 0;
   }
@@ -238,9 +256,15 @@ export function calculateACWR(schedules: any[], targetDateStr: string): number {
     const dailyWorkloads: Record<string, number> = {};
 
     past28Days.forEach(({ dateStr, dateObj }) => {
+      // 리셋된 firstDate 이전의 과거 시즌 데이터는 제외
+      if (dateObj.getTime() < firstDate.getTime()) {
+        dailyWorkloads[dateStr] = 0;
+        return;
+      }
+
       const daySchedules = schedules.filter(s => {
         if (!s || !s.date) return false;
-        const parsed = parseToDateObj(s.date, dateObj);
+        const parsed = parseToDateObj(s.date, targetDateObj);
         if (parsed) {
           return parsed.getTime() === dateObj.getTime();
         }
@@ -282,12 +306,72 @@ export function calculateACWR(schedules: any[], targetDateStr: string): number {
   return calculatedAcwr;
 }
 
+export function calculateGripBaselineAvg(
+  schedules: any[],
+  side: 'left' | 'right',
+  todayVal: number = 0,
+  referenceDate: Date = new Date()
+): number {
+  const prop = side === 'left' ? 'gripLeft' : 'gripRight';
+  const todayObj = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate(), 0, 0, 0, 0);
+  const twentyEightDaysAgo = new Date(todayObj.getTime() - 28 * 24 * 60 * 60 * 1000);
+
+  const firstDate = getFirstTrainingDate(schedules, todayObj);
+  const startBoundary = firstDate && firstDate.getTime() > twentyEightDaysAgo.getTime()
+    ? firstDate
+    : twentyEightDaysAgo;
+
+  // Deduplicate by date (MM/DD) and exclude today
+  const dateValueMap = new Map<string, { val: number; isConditioning: boolean }>();
+  let todayScheduleVal = 0;
+
+  if (schedules && Array.isArray(schedules)) {
+    schedules.forEach((s: any) => {
+      if (!s || !s.date) return;
+      const val = Number(s[prop]) || 0;
+      if (val <= 0) return;
+
+      const schedDate = parseToDateObj(s.date, todayObj);
+      if (!schedDate) return;
+
+      const isCond = Boolean(s.title === '[컨디셔닝] 당일 지표 측정' || s.title?.includes('[컨디셔닝]'));
+
+      if (schedDate.getTime() === todayObj.getTime()) {
+        if (isCond || todayScheduleVal === 0) {
+          todayScheduleVal = val;
+        }
+        return;
+      }
+
+      if (schedDate.getTime() >= startBoundary.getTime() && schedDate.getTime() < todayObj.getTime()) {
+        const key = `${schedDate.getFullYear()}-${String(schedDate.getMonth() + 1).padStart(2, '0')}-${String(schedDate.getDate()).padStart(2, '0')}`;
+        const existing = dateValueMap.get(key);
+        if (!existing || (isCond && !existing.isConditioning) || isCond) {
+          dateValueMap.set(key, { val, isConditioning: isCond });
+        }
+      }
+    });
+  }
+
+  const pastValues = Array.from(dateValueMap.values()).map(item => item.val).filter(v => v > 0);
+
+  if (pastValues.length > 0) {
+    const sum = pastValues.reduce((acc, curr) => acc + curr, 0);
+    return Number((sum / pastValues.length).toFixed(1));
+  }
+
+  // 과거 기록이 아예 없고 오늘 첫 기록만 있다면 오늘 값을 평균으로 사용
+  const fallbackToday = todayVal > 0 ? todayVal : todayScheduleVal;
+  return fallbackToday > 0 ? Number(fallbackToday.toFixed(1)) : 0;
+}
+
 export const rebuildChartsFromSchedules = (player: any) => {
   const p = { ...player };
   if (!p.schedules) p.schedules = [];
   
   const d = new Date();
-  const todayStr = String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+  const todayObj = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const todayStr = String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
 
   // Filter out any schedules that don't match MM/DD format (e.g. YYYY-MM-DD ones that aren't on calendar)
   p.schedules = p.schedules.filter((s: any) => typeof s.date === 'string' && s.date.includes('/') && s.date.length === 5);
@@ -310,109 +394,126 @@ export const rebuildChartsFromSchedules = (player: any) => {
       dateMap.set(s.date, { ...s });
     } else {
       if (isConditioning) {
+        const condSleep = (s.sleep !== undefined && s.sleep !== null && Number(s.sleep) > 0) ? Number(s.sleep) : null;
+        const existSleep = (existing.sleep !== undefined && existing.sleep !== null && Number(existing.sleep) > 0) ? Number(existing.sleep) : null;
         dateMap.set(s.date, {
           ...existing,
           ...s,
           grip: (s.grip !== undefined && Number(s.grip) > 0) ? s.grip : existing.grip,
           gripLeft: (s.gripLeft !== undefined && Number(s.gripLeft) > 0) ? s.gripLeft : existing.gripLeft,
           gripRight: (s.gripRight !== undefined && Number(s.gripRight) > 0) ? s.gripRight : existing.gripRight,
-          sleep: (s.sleep !== undefined && Number(s.sleep) > 0) ? s.sleep : existing.sleep,
-          sleepStart: s.sleepStart || existing.sleepStart,
-          sleepEnd: s.sleepEnd || existing.sleepEnd,
+          sleep: condSleep !== null ? condSleep : existSleep,
+          sleepStart: condSleep !== null ? s.sleepStart : (existSleep !== null ? existing.sleepStart : ''),
+          sleepEnd: condSleep !== null ? s.sleepEnd : (existSleep !== null ? existing.sleepEnd : ''),
+          rpe: (s.rpe !== undefined && Number(s.rpe) > 0) ? s.rpe : existing.rpe,
+          duration: (s.duration !== undefined && Number(s.duration) > 0) ? s.duration : existing.duration,
           sessions: s.sessions || existing.sessions
         });
       } else {
         if ((!existing.gripLeft || existing.gripLeft === 0) && s.gripLeft) existing.gripLeft = s.gripLeft;
         if ((!existing.gripRight || existing.gripRight === 0) && s.gripRight) existing.gripRight = s.gripRight;
         if ((!existing.grip || existing.grip === 0) && s.grip) existing.grip = s.grip;
-        if ((!existing.sleep || existing.sleep === 0) && s.sleep) existing.sleep = s.sleep;
+        if ((!existing.sleep || existing.sleep === 0) && s.sleep && Number(s.sleep) > 0) existing.sleep = Number(s.sleep);
         if (!existing.sleepStart && s.sleepStart) existing.sleepStart = s.sleepStart;
         if (!existing.sleepEnd && s.sleepEnd) existing.sleepEnd = s.sleepEnd;
+        if ((!existing.rpe || existing.rpe === 0) && s.rpe) existing.rpe = s.rpe;
+        if ((!existing.duration || existing.duration === 0) && s.duration) existing.duration = s.duration;
       }
     }
   }
-  
-  // Filter for care events
-  const careEvents = Array.from(dateMap.values()).filter((s: any) => 
-    s.title === '[컨디셔닝] 당일 지표 측정' || 
-    s.title?.includes('[컨디셔닝]') ||
-    (s.sleep !== undefined && Number(s.sleep) > 0) ||
-    (s.grip !== undefined && Number(s.grip) > 0) ||
-    (s.gripLeft !== undefined && Number(s.gripLeft) > 0) ||
-    (s.gripRight !== undefined && Number(s.gripRight) > 0) ||
-    (s.rpe !== undefined && Number(s.rpe) > 0) ||
-    (s.duration !== undefined && Number(s.duration) > 0)
-  );
 
-  careEvents.sort((a, b) => {
-    const da = parseToDateObj(a.date, d)?.getTime() || 0;
-    const db = parseToDateObj(b.date, d)?.getTime() || 0;
-    return da - db;
-  });
-  
-  // Recent 7 days for grip, sleep, and ACWR charts
-  const recentCare7 = careEvents.slice(-7);
+  // Generate actual 7 consecutive calendar days ending today (D-6 to Today)
+  const recent7CalendarDays: { dateStr: string; label: string; dateObj: Date; event: any }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayObj = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate() - i, 0, 0, 0, 0);
+    const mStr = String(dayObj.getMonth() + 1).padStart(2, '0');
+    const dStr = String(dayObj.getDate()).padStart(2, '0');
+    const dateStr = `${mStr}/${dStr}`;
+    const label = i === 0 ? '오늘' : dateStr;
+    recent7CalendarDays.push({
+      dateStr,
+      label,
+      dateObj: dayObj,
+      event: dateMap.get(dateStr) || null
+    });
+  }
 
   p.gripChartData = {
-      labels: recentCare7.map((e: any) => e.date === todayStr ? "오늘" : e.date),
-      values: recentCare7.map((e: any) => e.grip || ((Number(e.gripLeft || 0) + Number(e.gripRight || 0)) / 2) || 0),
-      leftValues: recentCare7.map((e: any) => e.gripLeft || e.grip || 0),
-      rightValues: recentCare7.map((e: any) => e.gripRight || e.grip || 0)
+    labels: recent7CalendarDays.map(day => day.label),
+    values: recent7CalendarDays.map(({ event }) =>
+      event ? (Number(event.grip) || ((Number(event.gripLeft || 0) + Number(event.gripRight || 0)) / 2) || 0) : 0
+    ),
+    leftValues: recent7CalendarDays.map(({ event }) =>
+      event ? (Number(event.gripLeft) || Number(event.grip) || 0) : 0
+    ),
+    rightValues: recent7CalendarDays.map(({ event }) =>
+      event ? (Number(event.gripRight) || Number(event.grip) || 0) : 0
+    )
   };
-  
-  p.sleepChartData = recentCare7.map((e: any) => ({
-      date: e.date === todayStr ? "오늘" : e.date,
-      sleepDuration: e.sleep || 0
-  }));
-  
-  const firstDate = getFirstTrainingDate(p.schedules);
 
-  p.acwrGraphData = recentCare7.map((e: any) => {
-      const targetDate = parseToDateObj(e.date, d) || new Date();
-      
-      // 1. 최초 기록일(firstDate)과 현재 점을 찍을 날짜(targetDate)의 경과 일수 계산
-      let diffDays = 0;
-      if (firstDate) {
-        const diffTime = targetDate.getTime() - firstDate.getTime();
-        diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      }
-
-      let calculatedAcwr = 0; // ACWR 기본값을 무조건 0으로 강제 설정
-
-      // 2. 21일이 경과했을 때만 진짜 계산식을 실행하도록 락(Lock) 걸기
-      if (firstDate && diffDays >= 21) {
-        calculatedAcwr = calculateACWR(p.schedules, e.date);
-      }
-
-      // Update schedule's acwr to be accurate
-      const schedIndex = p.schedules.findIndex((s: any) => s.date === e.date && s.title?.includes('[컨디셔닝]'));
-      if (schedIndex !== -1) {
-        p.schedules[schedIndex].acwr = calculatedAcwr;
-      }
-
-      // 3. 데이터 반환 (21일 미만인 날짜는 calculatedAcwr가 0인 상태로 반환됨)
-      return {
-        date: e.date === todayStr ? "오늘" : e.date,
-        acwr: calculatedAcwr
-      };
+  p.sleepChartData = recent7CalendarDays.map(({ label, event }) => {
+    const sleepVal = event && event.sleep !== null && event.sleep !== undefined ? Number(event.sleep) : 0;
+    return {
+      date: label,
+      sleepDuration: sleepVal > 0 ? sleepVal : null
+    };
   });
-  
+
+  const firstDate = getFirstTrainingDate(p.schedules, todayObj);
+
+  p.acwrGraphData = recent7CalendarDays.map(({ dateStr, label, dateObj }) => {
+    let diffDays = 0;
+    if (firstDate) {
+      const diffTime = dateObj.getTime() - firstDate.getTime();
+      diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    let calculatedAcwr = 0;
+
+    if (firstDate && diffDays >= 21) {
+      calculatedAcwr = calculateACWR(p.schedules, dateStr);
+    }
+
+    const schedIndex = p.schedules.findIndex((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+    if (schedIndex !== -1) {
+      p.schedules[schedIndex].acwr = calculatedAcwr;
+    }
+
+    return {
+      date: label,
+      acwr: calculatedAcwr
+    };
+  });
+
   // Update today's metric
   if (!p.metrics) p.metrics = {};
   p.metrics.acwr = calculateACWR(p.schedules, todayStr);
-  
-  const todayCareEvent = careEvents.find((e: any) => e.date === todayStr) || (careEvents.length > 0 ? careEvents[careEvents.length - 1] : null);
+
+  const todayCareEvent = dateMap.get(todayStr) || null;
   if (todayCareEvent) {
-    p.metrics.rpe = todayCareEvent.rpe || 0;
-    p.metrics.duration = todayCareEvent.duration || 0;
-    p.metrics.gripRaw = todayCareEvent.grip || ((Number(todayCareEvent.gripLeft || 0) + Number(todayCareEvent.gripRight || 0)) / 2) || 0;
-    p.metrics.grip = parseFloat(((p.metrics.gripRaw - 50) / 50 * 100).toFixed(1));
-    p.metrics.sleep = todayCareEvent.sleep || 0;
-    
+    p.metrics.rpe = Number(todayCareEvent.rpe) || 0;
+    p.metrics.duration = Number(todayCareEvent.duration) || 0;
+    const gl = Number(todayCareEvent.gripLeft) || Number(todayCareEvent.grip) || 0;
+    const gr = Number(todayCareEvent.gripRight) || Number(todayCareEvent.grip) || 0;
+    p.metrics.gripRaw = Number(todayCareEvent.grip) || ((gl + gr) / 2) || 0;
+    const avgLeft = calculateGripBaselineAvg(p.schedules, 'left', gl, todayObj);
+    const avgRight = calculateGripBaselineAvg(p.schedules, 'right', gr, todayObj);
+    const leftChange = avgLeft > 0 && gl > 0 ? ((gl - avgLeft) / avgLeft) * 100 : 0;
+    const rightChange = avgRight > 0 && gr > 0 ? ((gr - avgRight) / avgRight) * 100 : 0;
+    const minGripChange = Math.min(leftChange, rightChange);
+    p.metrics.grip = parseFloat(minGripChange.toFixed(1));
+    p.metrics.sleep = Number(todayCareEvent.sleep) || 0;
+
     const acwrSufficient = isAcwrSufficient(p.schedules, todayStr);
-    if ((acwrSufficient && p.metrics.acwr >= 1.5) || p.metrics.grip <= -10 || p.metrics.sleep < 6) p.status = "danger";
-    else if ((acwrSufficient && p.metrics.acwr >= 1.3) || p.metrics.grip <= -5) p.status = "warning";
+    if ((acwrSufficient && p.metrics.acwr >= 1.5) || minGripChange <= -10 || (p.metrics.sleep > 0 && p.metrics.sleep < 6)) p.status = "danger";
+    else if ((acwrSufficient && p.metrics.acwr >= 1.3) || minGripChange < -5 || (p.metrics.sleep >= 6 && p.metrics.sleep < 7)) p.status = "warning";
     else p.status = "optimal";
+  } else {
+    p.metrics.rpe = 0;
+    p.metrics.duration = 0;
+    p.metrics.gripRaw = 0;
+    p.metrics.grip = 0;
+    p.metrics.sleep = 0;
   }
 
   return p;

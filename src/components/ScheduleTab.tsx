@@ -101,6 +101,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
   const [newEventGrip, setNewEventGrip] = useState<number | ''>(50);
   const [newEventGripLeft, setNewEventGripLeft] = useState<number | ''>(50);
   const [newEventGripRight, setNewEventGripRight] = useState<number | ''>(50);
+  const [includeSleep, setIncludeSleep] = useState<boolean>(true);
   const [sleepStart, setSleepStart] = useState('23:00');
   const [sleepEnd, setSleepEnd] = useState('07:00');
   const [newEventType, setNewEventType] = useState<'match' | 'biz' | 'care'>('match');
@@ -183,15 +184,6 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        logRpe = totalDuration > 0 ? (totalLoad / totalDuration) : 0;
        const curAcute = logRpe * logDurationNum;
 
-       let sleepDuration = 0;
-       if (sleepStart && sleepEnd) {
-         const [startH, startM] = sleepStart.split(':').map(Number);
-         const [endH, endM] = sleepEnd.split(':').map(Number);
-         let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-         if (durationMins < 0) durationMins += 24 * 60;
-         sleepDuration = Number((durationMins / 60).toFixed(2));
-       }
-       
        gripLeft = gl;
        gripRight = gr;
        grip = overallGrip;
@@ -200,13 +192,17 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        place = newEventLocation;
     }
 
-    let sleep: number | undefined = undefined;
+    let sleep: number | null | undefined = undefined;
     if (newEventType === 'care') {
-      const [startH, startM] = sleepStart.split(':').map(Number);
-      const [endH, endM] = sleepEnd.split(':').map(Number);
-      let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-      if (durationMins < 0) durationMins += 24 * 60;
-      sleep = Number((durationMins / 60).toFixed(2));
+      if (includeSleep && sleepStart && sleepEnd) {
+        const [startH, startM] = sleepStart.split(':').map(Number);
+        const [endH, endM] = sleepEnd.split(':').map(Number);
+        let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
+        if (durationMins < 0) durationMins += 24 * 60;
+        sleep = Number((durationMins / 60).toFixed(2));
+      } else {
+        sleep = null;
+      }
     }
 
     const newEvent: any = { date: formattedDate, title, place, time, details, acwr, grip, gripLeft, gripRight };
@@ -214,13 +210,9 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
       newEvent.rpe = logRpe;
       newEvent.duration = logDurationNum;
       newEvent.sessions = trainingSessions;
-    }
-    if (sleep !== undefined) {
       newEvent.sleep = sleep;
-      if (newEventType === 'care') {
-        newEvent.sleepStart = sleepStart;
-        newEvent.sleepEnd = sleepEnd;
-      }
+      newEvent.sleepStart = includeSleep ? sleepStart : '';
+      newEvent.sleepEnd = includeSleep ? sleepEnd : '';
     }
     if (newEventType === 'match') {
       newEvent.isParticipating = newEventParticipating;
@@ -276,6 +268,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
+    setIncludeSleep(true);
     setSleepStart('23:00');
     setSleepEnd('07:00');
     setEditingEventOriginalIndex(null);
@@ -303,6 +296,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
+    setIncludeSleep(true);
     setSleepStart('23:00');
     setSleepEnd('07:00');
     setNewEventType(calendarType);
@@ -386,8 +380,9 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
         setNewEventGrip(event.grip || 50);
         setNewEventGripLeft(event.gripLeft || 50);
         setNewEventGripRight(event.gripRight || 50);
-        if (event.sleep !== undefined) {
-           const sleepDuration = event.sleep;
+        if (event.sleep !== undefined && event.sleep !== null && Number(event.sleep) > 0) {
+           setIncludeSleep(true);
+           const sleepDuration = Number(event.sleep);
            if (event.sleepStart && event.sleepEnd) {
              setSleepStart(event.sleepStart);
              setSleepEnd(event.sleepEnd);
@@ -398,6 +393,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
              setSleepEnd(`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
            }
         } else {
+           setIncludeSleep(false);
            setSleepStart('23:00');
            setSleepEnd('07:00');
         }
@@ -553,7 +549,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                         </span>
                       )}
                     </div>
-                    {isCare && (s.acwr !== undefined || s.grip !== undefined || s.gripLeft !== undefined || s.gripRight !== undefined || s.sleep !== undefined) && (
+                    {isCare && (s.acwr !== undefined || s.grip !== undefined || s.gripLeft !== undefined || s.gripRight !== undefined || (s.sleep !== undefined && s.sleep !== null && Number(s.sleep) > 0)) && (
                       <div className="text-gray-400 text-sm mt-1.5 font-medium flex gap-2 flex-wrap">
                         {s.acwr !== undefined && (
                           isAcwrSufficient(player?.schedules, s.date) ? (
@@ -562,10 +558,10 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                             <span className="text-yellow-400 font-semibold">ACWR: 데이터 수집 중 (최소 3주 필요)</span>
                           )
                         )}
-                        {s.gripLeft !== undefined && <span>악력(좌): {s.gripLeft}kg</span>}
-                        {s.gripRight !== undefined && <span>악력(우): {s.gripRight}kg</span>}
-                        {s.grip !== undefined && s.gripLeft === undefined && <span>악력: {s.grip}kg</span>}
-                        {s.sleep !== undefined && <span>수면: {s.sleep}h</span>}
+                        {s.gripLeft !== undefined && Number(s.gripLeft) > 0 && <span>악력(좌): {s.gripLeft}kg</span>}
+                        {s.gripRight !== undefined && Number(s.gripRight) > 0 && <span>악력(우): {s.gripRight}kg</span>}
+                        {s.grip !== undefined && Number(s.grip) > 0 && (!s.gripLeft || Number(s.gripLeft) <= 0) && <span>악력: {s.grip}kg</span>}
+                        {s.sleep !== undefined && s.sleep !== null && Number(s.sleep) > 0 && <span>수면: {s.sleep}h</span>}
                       </div>
                     )}
                   </div>
@@ -606,6 +602,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventGrip('');
     setNewEventGripLeft('');
     setNewEventGripRight('');
+    setIncludeSleep(true);
     setSleepStart('23:00');
     setSleepEnd('07:00');
               setIsAddModalOpen(true);
@@ -969,11 +966,30 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
                   </div>
 
                   <div>
-                    <label className="text-[13px] font-bold text-white mb-[6px] block">수면 시간</label>
-                    <div className="flex flex-col gap-[12px] mt-[6px]">
-                      <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
-                      <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
+                    <div className="flex items-center justify-between mb-[6px]">
+                      <label className="text-[13px] font-bold text-white block">수면 시간</label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={includeSleep}
+                          onChange={(e) => setIncludeSleep(e.target.checked)}
+                          className="w-4 h-4 accent-[var(--primary-color)] rounded cursor-pointer"
+                        />
+                        <span className={`text-[12px] font-bold ${includeSleep ? 'text-[var(--primary-color)]' : 'text-gray-400'}`}>
+                          수면 기록 포함
+                        </span>
+                      </label>
                     </div>
+                    {includeSleep ? (
+                      <div className="flex flex-col gap-[12px] mt-[6px]">
+                        <TimeSelect value={sleepStart} onChange={setSleepStart} label="취침시간" />
+                        <TimeSelect value={sleepEnd} onChange={setSleepEnd} label="기상시간" />
+                      </div>
+                    ) : (
+                      <div className="mt-[6px] py-3 px-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] text-gray-400 text-[12px] text-center font-medium">
+                        수면 시간을 입력하지 않습니다 (측정값 없음 처리)
+                      </div>
+                    )}
                   </div>
                 </>
               )}
