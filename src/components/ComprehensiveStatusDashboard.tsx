@@ -6,6 +6,8 @@ interface ComprehensiveStatusDashboardProps {
   sleep: number;
   gripLeft: number;
   gripRight: number;
+  dailyGripLeft?: number;
+  dailyGripRight?: number;
   isEmpty?: boolean;
   isAcwrSufficient?: boolean;
   isGripEmpty?: boolean;
@@ -16,6 +18,8 @@ export const generateConditionAnalysis = ({
   sleep,
   gripLeft,
   gripRight,
+  dailyGripLeft = 0,
+  dailyGripRight = 0,
   isEmpty = false,
   isAcwrSufficient: isAcwrSufficientProp = true,
   isGripEmpty: isGripEmptyProp
@@ -24,6 +28,8 @@ export const generateConditionAnalysis = ({
   sleep: number;
   gripLeft: number;
   gripRight: number;
+  dailyGripLeft?: number;
+  dailyGripRight?: number;
   isEmpty?: boolean;
   isAcwrSufficient?: boolean;
   isGripEmpty?: boolean;
@@ -36,8 +42,15 @@ export const generateConditionAnalysis = ({
   const acwrStatus = isAcwrAnalyzing ? 'analyzing' : acwr >= 1.5 ? 'danger' : acwr >= 1.3 ? 'warning' : 'normal';
 
   const minGripChange = Math.min(gripLeft, gripRight);
-  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
-  const gripStatus = isGripEmpty ? 'normal' : minGripChange <= -10.0 ? 'danger' : minGripChange < -5.0 ? 'warning' : 'normal';
+  const minDailyGripChange = Math.min(dailyGripLeft, dailyGripRight);
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0 && dailyGripLeft === 0 && dailyGripRight === 0);
+  const gripStatus = isGripEmpty
+    ? 'normal'
+    : minGripChange <= -10.0
+      ? 'danger'
+      : (minGripChange < -5.0 || minDailyGripChange <= -8.0)
+        ? 'warning'
+        : 'normal';
 
   const isSleepEmpty = sleep === 0;
   const sleepStatus = isSleepEmpty ? 'normal' : sleep < 6.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
@@ -83,8 +96,11 @@ export const generateConditionAnalysis = ({
 
   let gripText = '';
   if (gripStatus === 'warning') {
-    const changeFormatted = `${minGripChange.toFixed(1)}%`;
-    gripText = `중추신경계 피로도를 나타내는 악력이 평균 대비 ${changeFormatted} 하락하여 주의가 필요합니다. 웨이트 중량 및 훈련 볼륨 조절을 권장합니다. `;
+    if (minGripChange < -5.0) {
+      gripText = `중추신경계 피로도를 나타내는 악력이 평균 대비 ${minGripChange.toFixed(1)}% 하락하여 주의가 필요합니다. 웨이트 중량 및 훈련 볼륨 조절을 권장합니다. `;
+    } else if (minDailyGripChange <= -8.0) {
+      gripText = `평균 대비 악력(${minGripChange > 0 ? '+' : ''}${minGripChange.toFixed(1)}%)은 양호하나, 어제 대비 ${minDailyGripChange.toFixed(1)}% 급락하여 일일 급성 신경계 피로가 감지되었습니다. 전날 훈련/경기의 데미지가 남아있으므로 워밍업 시 컨디션을 면밀히 체크하고 고중량 훈련 시 주의가 필요합니다. `;
+    }
   } else if (gripStatus === 'danger') {
     const changeFormatted = `${minGripChange.toFixed(1)}%`;
     gripText = `중추신경계 피로도를 나타내는 악력이 평균 대비 ${changeFormatted} 하락하여 위험 수준입니다. 배트 스피드 저하 및 투구/타격 밸런스 붕괴가 우려되므로 고강도 기술 훈련의 즉각적인 조절이 필요합니다. `;
@@ -111,15 +127,24 @@ export const getComprehensiveStatus = (
   gripRight: number,
   isEmpty: boolean,
   isAcwrSufficient: boolean = true,
-  isGripEmptyProp?: boolean
+  isGripEmptyProp?: boolean,
+  dailyGripLeft: number = 0,
+  dailyGripRight: number = 0
 ) => {
   // 1. Evaluate individual indicator statuses
   const isAcwrAnalyzing = !isAcwrSufficient || acwr === 0;
   const acwrStatus = isAcwrAnalyzing ? 'analyzing' : acwr >= 1.5 ? 'danger' : acwr >= 1.3 ? 'warning' : 'normal';
 
   const minGripChange = Math.min(gripLeft, gripRight);
-  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
-  const gripStatus = isGripEmpty ? 'empty' : minGripChange <= -10.0 ? 'danger' : minGripChange < -5.0 ? 'warning' : 'normal';
+  const minDailyGripChange = Math.min(dailyGripLeft, dailyGripRight);
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0 && dailyGripLeft === 0 && dailyGripRight === 0);
+  const gripStatus = isGripEmpty
+    ? 'empty'
+    : minGripChange <= -10.0
+      ? 'danger'
+      : (minGripChange < -5.0 || minDailyGripChange <= -8.0)
+        ? 'warning'
+        : 'normal';
 
   const isSleepEmpty = sleep === 0;
   const sleepStatus = isSleepEmpty ? 'empty' : sleep < 6.0 ? 'danger' : sleep < 7.0 ? 'warning' : 'normal';
@@ -188,6 +213,8 @@ export const getComprehensiveStatus = (
     sleep,
     gripLeft,
     gripRight,
+    dailyGripLeft,
+    dailyGripRight,
     isEmpty,
     isAcwrSufficient,
     isGripEmpty
@@ -198,7 +225,7 @@ export const getComprehensiveStatus = (
 
 export const getPlayerComprehensiveStatus = (player: any) => {
   if (!player) {
-    return getComprehensiveStatus(0, 0, 0, 0, true, false, true);
+    return getComprehensiveStatus(0, 0, 0, 0, true, false, true, 0, 0);
   }
 
   const isAcwrSufficientData = isAcwrSufficient(player.schedules);
@@ -216,6 +243,31 @@ export const getPlayerComprehensiveStatus = (player: any) => {
   const rightValues = player.gripChartData?.rightValues || [];
   const gripRightToday = rightValues[rightValues.length - 1] || 0;
 
+  const getYesterdayGripFromPlayer = (side: 'left' | 'right') => {
+    const values = side === 'left' ? leftValues : rightValues;
+    if (values && values.length >= 2) {
+      const yesterdayVal = Number(values[values.length - 2]);
+      if (!isNaN(yesterdayVal) && yesterdayVal > 0) {
+        return yesterdayVal;
+      }
+    }
+    if (player?.schedules && Array.isArray(player.schedules)) {
+      const now = new Date();
+      const yObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const yDateStr = `${String(yObj.getMonth() + 1).padStart(2, '0')}/${String(yObj.getDate()).padStart(2, '0')}`;
+      const prop = side === 'left' ? 'gripLeft' : 'gripRight';
+      const yesterdayEntries = player.schedules.filter((s: any) => s.date === yDateStr && Number(s[prop]) > 0);
+      if (yesterdayEntries.length > 0) {
+        const condEntry = yesterdayEntries.find((s: any) => s.title?.includes('[컨디셔닝]'));
+        return Number((condEntry || yesterdayEntries[yesterdayEntries.length - 1])[prop]) || 0;
+      }
+    }
+    return 0;
+  };
+
+  const yesterdayLeft = getYesterdayGripFromPlayer('left');
+  const yesterdayRight = getYesterdayGripFromPlayer('right');
+
   const avgLeft = calculateGripBaselineAvg(player?.schedules || [], 'left', gripLeftToday);
   const avgRight = calculateGripBaselineAvg(player?.schedules || [], 'right', gripRightToday);
 
@@ -231,9 +283,22 @@ export const getPlayerComprehensiveStatus = (player: any) => {
   const leftChange = (avgLeft > 0 && gripLeftToday > 0) ? getGripChange(avgLeft, gripLeftToday) : 0;
   const rightChange = (avgRight > 0 && gripRightToday > 0) ? getGripChange(avgRight, gripRightToday) : 0;
 
+  const dailyLeftChange = (yesterdayLeft > 0 && gripLeftToday > 0) ? getGripChange(yesterdayLeft, gripLeftToday) : 0;
+  const dailyRightChange = (yesterdayRight > 0 && gripRightToday > 0) ? getGripChange(yesterdayRight, gripRightToday) : 0;
+
   const isEmpty = isAcwrEmpty && isSleepEmpty && isGripEmpty;
 
-  return getComprehensiveStatus(latestAcwr, latestSleep, leftChange, rightChange, isEmpty, isAcwrSufficientData, isGripEmpty);
+  return getComprehensiveStatus(
+    latestAcwr,
+    latestSleep,
+    leftChange,
+    rightChange,
+    isEmpty,
+    isAcwrSufficientData,
+    isGripEmpty,
+    dailyLeftChange,
+    dailyRightChange
+  );
 };
 
 export default function ComprehensiveStatusDashboard({
@@ -241,14 +306,16 @@ export default function ComprehensiveStatusDashboard({
   sleep,
   gripLeft,
   gripRight,
+  dailyGripLeft = 0,
+  dailyGripRight = 0,
   isEmpty = false,
   isAcwrSufficient = true,
   isGripEmpty: isGripEmptyProp
 }: ComprehensiveStatusDashboardProps) {
   const [showHelpModal, setShowHelpModal] = React.useState(false);
-  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0);
+  const isGripEmpty = isGripEmptyProp !== undefined ? isGripEmptyProp : (gripLeft === 0 && gripRight === 0 && dailyGripLeft === 0 && dailyGripRight === 0);
   const normalizedSleep = sleep && Number(sleep) > 0 ? Number(sleep) : 0;
-  const status = getComprehensiveStatus(acwr, normalizedSleep, gripLeft, gripRight, isEmpty, isAcwrSufficient, isGripEmpty);
+  const status = getComprehensiveStatus(acwr, normalizedSleep, gripLeft, gripRight, isEmpty, isAcwrSufficient, isGripEmpty, dailyGripLeft, dailyGripRight);
   const { badgeColor, badgeText, borderColor, icon, briefing } = status;
   
   const asymmetry = !isEmpty && !isGripEmpty && Math.abs(gripLeft - gripRight) >= 15;
@@ -273,8 +340,9 @@ export default function ComprehensiveStatusDashboard({
     if (type === 'nerve') {
       if (isGripEmpty) return { label: '신경계 (악력)', status: '측정 안됨', color: 'text-gray-500', icon: 'info' };
       const minGrip = Math.min(gripLeft, gripRight);
+      const minDailyGrip = Math.min(dailyGripLeft, dailyGripRight);
       if (minGrip <= -10.0) return { label: '신경계 (악력)', status: '위험', color: 'text-red-500', icon: 'warning' };
-      if (minGrip < -5.0) return { label: '신경계 (악력)', status: '주의', color: 'text-yellow-500', icon: 'warning_amber' };
+      if (minGrip < -5.0 || minDailyGrip <= -8.0) return { label: '신경계 (악력)', status: '주의', color: 'text-yellow-500', icon: 'warning_amber' };
       return { label: '신경계 (악력)', status: '정상', color: 'text-[#4ade80]', icon: 'check_circle' };
     }
     return { label: '', status: '', color: '', icon: '' };
@@ -395,7 +463,7 @@ export default function ComprehensiveStatusDashboard({
                     <span>🟡</span> 주의 (Yellow)
                   </div>
                   <p className="text-xs text-gray-300 leading-relaxed pl-5">
-                    - 핵심 지표(ACWR/악력)에 위험은 없으나 1개 이상 지표가 &apos;주의&apos;이거나, <strong className="text-yellow-300 font-semibold">오직 수면만 &apos;위험&apos;</strong>일 때
+                    - 핵심 지표(ACWR/악력)에 위험은 없으나 1개 이상 지표가 &apos;주의&apos;(악력의 경우 평균 대비 -5% ~ -10% 하락 또는 어제 대비 -8% 이상 급락 (일일 급성 피로))이거나, <strong className="text-yellow-300 font-semibold">오직 수면만 &apos;위험&apos;</strong>일 때
                   </p>
                 </div>
 

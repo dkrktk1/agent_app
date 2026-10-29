@@ -631,10 +631,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
     return ((today - base) / base) * 100;
   };
 
-  const getGripStatus = (change: number, isEmpty: boolean) => {
+  const getGripStatus = (baseChange: number, dailyChange: number, isEmpty: boolean) => {
     if (isEmpty) return { status: '측정값 없음', colorClass: 'text-gray-500', borderClass: 'border-gray-500/30', bgClass: 'bg-gray-500/10' };
-    if (change <= -10.0) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
-    if (change < -5.0) return { status: '주의', colorClass: 'text-yellow-500', borderClass: 'border-yellow-500/30', bgClass: 'bg-yellow-500/10' };
+    if (baseChange <= -10.0) return { status: '위험', colorClass: 'text-red-500', borderClass: 'border-red-500/30', bgClass: 'bg-red-500/10' };
+    if (baseChange < -5.0 || dailyChange <= -8.0) return { status: '주의', colorClass: 'text-yellow-500', borderClass: 'border-yellow-500/30', bgClass: 'bg-yellow-500/10' };
     return { status: '최적', colorClass: 'text-green-500', borderClass: 'border-green-500/30', bgClass: 'bg-green-500/10' };
   };
 
@@ -643,8 +643,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
 
   const leftChange = (avgLeft > 0 && gripLeftToday > 0) ? getGripChange(avgLeft, gripLeftToday) : 0;
   const rightChange = (avgRight > 0 && gripRightToday > 0) ? getGripChange(avgRight, gripRightToday) : 0;
-  const leftStatus = getGripStatus(leftChange, isLeftEmpty);
-  const rightStatus = getGripStatus(rightChange, isRightEmpty);
+  const dailyLeftChange = (yesterdayLeft > 0 && gripLeftToday > 0) ? getGripChange(yesterdayLeft, gripLeftToday) : 0;
+  const dailyRightChange = (yesterdayRight > 0 && gripRightToday > 0) ? getGripChange(yesterdayRight, gripRightToday) : 0;
+  const leftStatus = getGripStatus(leftChange, dailyLeftChange, isLeftEmpty);
+  const rightStatus = getGripStatus(rightChange, dailyRightChange, isRightEmpty);
 
   return (
     <div className="tab-pane active pb-20">
@@ -702,6 +704,8 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
         sleep={latestSleep}
         gripLeft={leftChange}
         gripRight={rightChange}
+        dailyGripLeft={dailyLeftChange}
+        dailyGripRight={dailyRightChange}
         isEmpty={isAcwrEmpty && isSleepEmpty && isLeftEmpty && isRightEmpty}
         isAcwrSufficient={isAcwrSufficientData}
         isGripEmpty={isLeftEmpty && isRightEmpty}
@@ -803,7 +807,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">변화율</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평균 대비 변화율</span>
                   <span className={`text-xl sm:text-2xl font-black ${leftStatus.colorClass} text-right`}>
                     {isLeftEmpty ? '-' : `${leftChange > 0 ? '+' : ''}${leftChange.toFixed(1)}%`}
                   </span>
@@ -811,40 +815,47 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
                   <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
-                  <div className="flex items-baseline justify-end whitespace-nowrap shrink-0">
-                    <input 
-                      type="number" 
-                      step="0.1"
-                      value={gripLeftToday === 0 ? '' : gripLeftToday} 
-                      onChange={e => setGripLeftToday(Number(e.target.value))}
-                      onBlur={e => {
-                        const val = Number(e.target.value);
-                        let p = JSON.parse(JSON.stringify(player));
-                        const today = new Date();
-                        const month = String(today.getMonth() + 1).padStart(2, '0');
-                        const d = String(today.getDate()).padStart(2, '0');
-                        const dateStr = `${month}/${d}`;
-                        p.schedules = p.schedules || [];
-                        const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
-                        if (existing) {
-                          existing.gripLeft = val;
-                          existing.grip = (val + (existing.gripRight || gripRightToday)) / 2;
-                        } else {
-                          p.schedules.push({
-                            date: dateStr,
-                            title: '[컨디셔닝] 당일 지표 측정',
-                            gripLeft: val,
-                            gripRight: gripRightToday,
-                            grip: (val + gripRightToday) / 2
-                          });
-                        }
-                        p = rebuildChartsFromSchedules(p);
-                        onUpdatePlayer(p);
-                      }}
-                      placeholder="0"
-                      className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
-                    />
-                    <span className="text-xl sm:text-2xl text-white font-black ml-1">kg</span>
+                  <div className="flex flex-col items-end shrink-0">
+                    <div className="flex items-baseline justify-end whitespace-nowrap">
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        value={gripLeftToday === 0 ? '' : gripLeftToday} 
+                        onChange={e => setGripLeftToday(Number(e.target.value))}
+                        onBlur={e => {
+                          const val = Number(e.target.value);
+                          let p = JSON.parse(JSON.stringify(player));
+                          const today = new Date();
+                          const month = String(today.getMonth() + 1).padStart(2, '0');
+                          const d = String(today.getDate()).padStart(2, '0');
+                          const dateStr = `${month}/${d}`;
+                          p.schedules = p.schedules || [];
+                          const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+                          if (existing) {
+                            existing.gripLeft = val;
+                            existing.grip = (val + (existing.gripRight || gripRightToday)) / 2;
+                          } else {
+                            p.schedules.push({
+                              date: dateStr,
+                              title: '[컨디셔닝] 당일 지표 측정',
+                              gripLeft: val,
+                              gripRight: gripRightToday,
+                              grip: (val + gripRightToday) / 2
+                            });
+                          }
+                          p = rebuildChartsFromSchedules(p);
+                          onUpdatePlayer(p);
+                        }}
+                        placeholder="0"
+                        className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
+                      />
+                      <span className="text-xl sm:text-2xl text-white font-black ml-1">kg</span>
+                    </div>
+                    {yesterdayLeft > 0 && gripLeftToday > 0 && (
+                      <span className={`text-[11px] font-medium mt-0.5 whitespace-nowrap ${dailyLeftChange <= -8.0 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                        (어제 대비 {dailyLeftChange > 0 ? '+' : ''}{dailyLeftChange.toFixed(1)}%)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -875,7 +886,7 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
               
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">변화율</span>
+                  <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">평균 대비 변화율</span>
                   <span className={`text-xl sm:text-2xl font-black ${rightStatus.colorClass} text-right`}>
                     {isRightEmpty ? '-' : `${rightChange > 0 ? '+' : ''}${rightChange.toFixed(1)}%`}
                   </span>
@@ -883,40 +894,47 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
                 
                 <div className="flex items-center justify-between bg-black/20 p-1.5 sm:p-2 rounded-lg">
                   <span className="text-[13px] text-[var(--text-muted)] whitespace-nowrap">오늘 측정값</span>
-                  <div className="flex items-baseline justify-end whitespace-nowrap shrink-0">
-                    <input 
-                      type="number" 
-                      step="0.1"
-                      value={gripRightToday === 0 ? '' : gripRightToday} 
-                      onChange={e => setGripRightToday(Number(e.target.value))}
-                      onBlur={e => {
-                        const val = Number(e.target.value);
-                        let p = JSON.parse(JSON.stringify(player));
-                        const today = new Date();
-                        const month = String(today.getMonth() + 1).padStart(2, '0');
-                        const d = String(today.getDate()).padStart(2, '0');
-                        const dateStr = `${month}/${d}`;
-                        p.schedules = p.schedules || [];
-                        const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
-                        if (existing) {
-                          existing.gripRight = val;
-                          existing.grip = ((existing.gripLeft || gripLeftToday) + val) / 2;
-                        } else {
-                          p.schedules.push({
-                            date: dateStr,
-                            title: '[컨디셔닝] 당일 지표 측정',
-                            gripLeft: gripLeftToday,
-                            gripRight: val,
-                            grip: (gripLeftToday + val) / 2
-                          });
-                        }
-                        p = rebuildChartsFromSchedules(p);
-                        onUpdatePlayer(p);
-                      }}
-                      placeholder="0"
-                      className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
-                    />
-                    <span className="text-xl sm:text-2xl text-white font-black ml-1">kg</span>
+                  <div className="flex flex-col items-end shrink-0">
+                    <div className="flex items-baseline justify-end whitespace-nowrap">
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        value={gripRightToday === 0 ? '' : gripRightToday} 
+                        onChange={e => setGripRightToday(Number(e.target.value))}
+                        onBlur={e => {
+                          const val = Number(e.target.value);
+                          let p = JSON.parse(JSON.stringify(player));
+                          const today = new Date();
+                          const month = String(today.getMonth() + 1).padStart(2, '0');
+                          const d = String(today.getDate()).padStart(2, '0');
+                          const dateStr = `${month}/${d}`;
+                          p.schedules = p.schedules || [];
+                          const existing = p.schedules.find((s: any) => s.date === dateStr && s.title?.includes('[컨디셔닝]'));
+                          if (existing) {
+                            existing.gripRight = val;
+                            existing.grip = ((existing.gripLeft || gripLeftToday) + val) / 2;
+                          } else {
+                            p.schedules.push({
+                              date: dateStr,
+                              title: '[컨디셔닝] 당일 지표 측정',
+                              gripLeft: gripLeftToday,
+                              gripRight: val,
+                              grip: (gripLeftToday + val) / 2
+                            });
+                          }
+                          p = rebuildChartsFromSchedules(p);
+                          onUpdatePlayer(p);
+                        }}
+                        placeholder="0"
+                        className="bg-transparent border-none w-[48px] sm:w-[64px] p-0 text-right text-xl sm:text-2xl text-white font-black focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder-gray-600"
+                      />
+                      <span className="text-xl sm:text-2xl text-white font-black ml-1">kg</span>
+                    </div>
+                    {yesterdayRight > 0 && gripRightToday > 0 && (
+                      <span className={`text-[11px] font-medium mt-0.5 whitespace-nowrap ${dailyRightChange <= -8.0 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                        (어제 대비 {dailyRightChange > 0 ? '+' : ''}{dailyRightChange.toFixed(1)}%)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1383,10 +1401,10 @@ export default function CareTab({ player: rawPlayer, isAgent, onUpdatePlayer }: 
 
                 <div className="space-y-1">
                   <div className="font-bold text-yellow-400 text-xs sm:text-sm flex items-center gap-1.5">
-                    <span>🟡</span> 평균 대비 -5% ~ -10% 하락
+                    <span>🟡</span> 평균 대비 -5% ~ -10% 하락 또는 어제 대비 -8% 이상 급락 (일일 급성 피로)
                   </div>
                   <p className="text-xs text-gray-300 leading-relaxed pl-5">
-                    - 신경계 피로가 쌓이기 시작했습니다. 무거운 웨이트 트레이닝의 중량을 줄이고, 코어 및 밸런스 위주로 훈련을 조정해야 합니다.
+                    - 신경계 피로가 쌓이기 시작했거나 전날 고강도 훈련/경기로 인한 일일 급성 신경계 피로가 발생한 상태입니다. 무거운 웨이트 트레이닝의 중량을 줄이고, 코어 및 밸런스 위주로 훈련을 조정해야 합니다.
                   </p>
                 </div>
 
