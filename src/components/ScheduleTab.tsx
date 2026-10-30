@@ -136,6 +136,75 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setCurrentDate(new Date(currentDate.getFullYear(), parseInt(e.target.value), 1));
   };
 
+  const getDefaultTrainingSessions = () => [
+    { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
+    { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
+    { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true }
+  ];
+
+  const findCareEventByFormattedDate = (mmdd: string) => {
+    if (!player?.schedules || !Array.isArray(player.schedules)) return null;
+    for (let i = 0; i < player.schedules.length; i++) {
+      const s = player.schedules[i];
+      if (s.date === mmdd && s.title && s.title.includes('[컨디셔닝]')) {
+        return { ...s, originalIndex: i };
+      }
+    }
+    return null;
+  };
+
+  const resetCareFormFields = () => {
+    setTrainingSessions(getDefaultTrainingSessions());
+    setNewEventGrip('');
+    setNewEventGripLeft('');
+    setNewEventGripRight('');
+    setIncludeSleep(true);
+    setSleepStart('23:00');
+    setSleepEnd('07:00');
+    setEditingEventOriginalIndex(null);
+  };
+
+  const applyCareEventToForm = (event: any) => {
+    setNewEventType('care');
+    if (event.sessions && Array.isArray(event.sessions)) {
+      setTrainingSessions(JSON.parse(JSON.stringify(event.sessions)));
+    } else {
+      const d = event.duration || '';
+      const r = event.rpe || '';
+      if (d || r) {
+        setTrainingSessions([
+          { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
+          { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
+          { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true },
+          { id: 'legacy', name: '기존 기록', duration: d, rpe: r, isFixed: false }
+        ]);
+      } else {
+        setTrainingSessions(getDefaultTrainingSessions());
+      }
+    }
+    setNewEventGrip(event.grip || '');
+    setNewEventGripLeft(event.gripLeft || '');
+    setNewEventGripRight(event.gripRight || '');
+    if (event.sleep !== undefined && event.sleep !== null && Number(event.sleep) > 0) {
+      setIncludeSleep(true);
+      const sleepDuration = Number(event.sleep);
+      if (event.sleepStart && event.sleepEnd) {
+        setSleepStart(event.sleepStart);
+        setSleepEnd(event.sleepEnd);
+      } else {
+        setSleepStart('23:00');
+        const endH = (23 + Math.floor(sleepDuration)) % 24;
+        const endM = Math.round((sleepDuration - Math.floor(sleepDuration)) * 60);
+        setSleepEnd(`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
+      }
+    } else {
+      setIncludeSleep(false);
+      setSleepStart('23:00');
+      setSleepEnd('07:00');
+    }
+    setEditingEventOriginalIndex(event.originalIndex);
+  };
+
   const handleAddEvent = () => {
     if (!newEventDate) return;
     
@@ -166,8 +235,6 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        const gl = Number(newEventGripLeft) || 0;
        const gr = Number(newEventGripRight) || 0;
        const overallGrip = (gl + gr) / 2;
-
-       const dev = ((overallGrip - 50) / 50 * 100).toFixed(1);
        
        let totalDuration = 0;
        let totalLoad = 0;
@@ -182,7 +249,6 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
        
        logDurationNum = totalDuration;
        logRpe = totalDuration > 0 ? (totalLoad / totalDuration) : 0;
-       const curAcute = logRpe * logDurationNum;
 
        gripLeft = gl;
        gripRight = gr;
@@ -223,8 +289,17 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
 
     let updatedSchedules = [...(p.schedules || [])];
 
-    if (editingEventOriginalIndex !== null) {
+    if (editingEventOriginalIndex !== null && editingEventOriginalIndex >= 0 && editingEventOriginalIndex < updatedSchedules.length) {
       updatedSchedules[editingEventOriginalIndex] = newEvent;
+    } else if (newEventType === 'care') {
+      const existingCareIndex = updatedSchedules.findIndex(
+        (s: any) => s.date === formattedDate && s.title && s.title.includes('[컨디셔닝]')
+      );
+      if (existingCareIndex !== -1) {
+        updatedSchedules[existingCareIndex] = newEvent;
+      } else {
+        updatedSchedules.push(newEvent);
+      }
     } else {
       updatedSchedules.push(newEvent);
     }
@@ -263,15 +338,7 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     setNewEventTeam('');
     setNewEventLocation('홈');
     setNewEventDetails('');
-    
-    
-    setNewEventGrip('');
-    setNewEventGripLeft('');
-    setNewEventGripRight('');
-    setIncludeSleep(true);
-    setSleepStart('23:00');
-    setSleepEnd('07:00');
-    setEditingEventOriginalIndex(null);
+    resetCareFormFields();
   };
 
   const handleDayClick = (day: number) => {
@@ -283,22 +350,27 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     const d = String(day).padStart(2, '0');
+    const fullDateStr = `${year}-${month}-${d}`;
+
+    if (calendarType === 'care') {
+      const dayEvents = getDayEvents(day);
+      const existingCareEvent = dayEvents.find((ev: any) => ev.title && ev.title.includes('[컨디셔닝]'));
+      if (existingCareEvent) {
+        setNewEventDate(fullDateStr);
+        applyCareEventToForm(existingCareEvent);
+        setIsAddModalOpen(true);
+        return;
+      }
+    }
     
-    setNewEventDate(`${year}-${month}-${d}`);
+    setNewEventDate(fullDateStr);
     setNewEventTitle('');
     setNewEventPlace('');
     setNewEventTime('');
     setNewEventTeam('');
     setNewEventLocation('홈');
     setNewEventDetails('');
-    
-    
-    setNewEventGrip('');
-    setNewEventGripLeft('');
-    setNewEventGripRight('');
-    setIncludeSleep(true);
-    setSleepStart('23:00');
-    setSleepEnd('07:00');
+    resetCareFormFields();
     setNewEventType(calendarType);
     setEditingEventOriginalIndex(null);
     setIsAddModalOpen(true);
@@ -355,57 +427,18 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
           setNewEventMinute('00');
         }
         setNewEventDetails(event.details || '');
+        setEditingEventOriginalIndex(event.originalIndex);
     } else if (isCare) {
-        setNewEventType('care');
-        if (event.sessions && Array.isArray(event.sessions)) {
-          setTrainingSessions(event.sessions);
-        } else {
-          const d = event.duration || '';
-          const r = event.rpe || '';
-          if (d || r) {
-             setTrainingSessions([
-               { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
-               { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
-               { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true },
-               { id: 'legacy', name: '기존 기록', duration: d, rpe: r, isFixed: false }
-             ]);
-          } else {
-             setTrainingSessions([
-               { id: 'match', name: '경기 시간(분)', duration: '', rpe: '', isFixed: true },
-               { id: 'weight', name: '웨이트 트레이닝 시간(분)', duration: '', rpe: '', isFixed: true },
-               { id: 'skill', name: '기술 훈련 시간(분)', duration: '', rpe: '', isFixed: true }
-             ]);
-          }
-        }
-        setNewEventGrip(event.grip || 50);
-        setNewEventGripLeft(event.gripLeft || 50);
-        setNewEventGripRight(event.gripRight || 50);
-        if (event.sleep !== undefined && event.sleep !== null && Number(event.sleep) > 0) {
-           setIncludeSleep(true);
-           const sleepDuration = Number(event.sleep);
-           if (event.sleepStart && event.sleepEnd) {
-             setSleepStart(event.sleepStart);
-             setSleepEnd(event.sleepEnd);
-           } else {
-             setSleepStart('23:00');
-             const endH = (23 + Math.floor(sleepDuration)) % 24;
-             const endM = Math.round((sleepDuration - Math.floor(sleepDuration)) * 60);
-             setSleepEnd(`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
-           }
-        } else {
-           setIncludeSleep(false);
-           setSleepStart('23:00');
-           setSleepEnd('07:00');
-        }
+        applyCareEventToForm(event);
     } else {
         setNewEventType('match');
         setNewEventTeam(titleWithoutPrefix || 'KIA 타이거즈');
         setNewEventLocation(event.place || '홈');
         setNewEventParticipating(!!event.isParticipating);
         setNewEventParticipationType(event.participationType || '선발');
+        setEditingEventOriginalIndex(event.originalIndex);
     }
 
-    setEditingEventOriginalIndex(event.originalIndex);
     setIsAddModalOpen(true);
   };
 
@@ -581,10 +614,28 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
           <h3>일정표</h3>
           <button 
             onClick={() => {
-              setEditingEventOriginalIndex(null);
-              
+              if (calendarType === 'medical') {
+                alert("메디컬 일정 추가는 메디컬 탭에서 진행해주세요.");
+                return;
+              }
+
               const today = new Date();
-              const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+              const year = today.getFullYear();
+              const month = String(today.getMonth() + 1).padStart(2, '0');
+              const d = String(today.getDate()).padStart(2, '0');
+              const localDate = `${year}-${month}-${d}`;
+              const todayFormatted = `${month}/${d}`;
+
+              if (calendarType === 'care') {
+                const existingTodayCare = findCareEventByFormattedDate(todayFormatted);
+                if (existingTodayCare) {
+                  setNewEventDate(localDate);
+                  applyCareEventToForm(existingTodayCare);
+                  setIsAddModalOpen(true);
+                  return;
+                }
+              }
+
               setNewEventDate(localDate);
               setNewEventTitle('');
               setNewEventPlace('');
@@ -597,14 +648,9 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               setNewEventParticipating(false);
               setNewEventParticipationType('선발');
               setNewEventDetails('');
-              
-    
-    setNewEventGrip('');
-    setNewEventGripLeft('');
-    setNewEventGripRight('');
-    setIncludeSleep(true);
-    setSleepStart('23:00');
-    setSleepEnd('07:00');
+              resetCareFormFields();
+              setNewEventType(calendarType);
+              setEditingEventOriginalIndex(null);
               setIsAddModalOpen(true);
             }} 
             className="flex items-center gap-1.5 text-[var(--primary-color)] font-bold text-sm hover:opacity-80 transition-opacity" 
@@ -727,7 +773,28 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
             <div className="p-6 overflow-y-auto flex flex-col gap-[16px]">
               <div>
                 <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">일정 분류</label>
-                <select value={newEventType} onChange={e => setNewEventType(e.target.value as any)} className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none">
+                <select
+                  value={newEventType}
+                  onChange={e => {
+                    const selectedType = e.target.value as 'match' | 'biz' | 'care';
+                    setNewEventType(selectedType);
+                    if (selectedType === 'care' && newEventDate) {
+                      const [, m, d] = newEventDate.split('-');
+                      const existingCare = findCareEventByFormattedDate(`${m}/${d}`);
+                      if (existingCare) {
+                        applyCareEventToForm(existingCare);
+                      } else {
+                        resetCareFormFields();
+                      }
+                    } else if (selectedType !== 'care' && editingEventOriginalIndex !== null) {
+                      const currentEdited = player?.schedules?.[editingEventOriginalIndex];
+                      if (currentEdited?.title?.includes('[컨디셔닝]')) {
+                        setEditingEventOriginalIndex(null);
+                      }
+                    }
+                  }}
+                  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none"
+                >
                   <option value="match">경기 일정</option>
                   <option value="biz">비즈니스 일정</option>
                   <option value="care">컨디셔닝 일정</option>
@@ -735,7 +802,26 @@ export default function ScheduleTab({ player, isAgent, onUpdatePlayer }: { playe
               </div>
               <div>
                 <label className="text-[13px] font-normal text-gray-300 mb-[6px] block">일정 날짜</label>
-                <input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} max="9999-12-31" required  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none" />
+                <input
+                  type="date"
+                  value={newEventDate}
+                  onChange={e => {
+                    const selectedDate = e.target.value;
+                    setNewEventDate(selectedDate);
+                    if (newEventType === 'care' && selectedDate) {
+                      const [, m, d] = selectedDate.split('-');
+                      const existingCare = findCareEventByFormattedDate(`${m}/${d}`);
+                      if (existingCare) {
+                        applyCareEventToForm(existingCare);
+                      } else {
+                        resetCareFormFields();
+                      }
+                    }
+                  }}
+                  max="9999-12-31"
+                  required
+                  className="w-full h-[30px] bg-[rgba(255,255,255,0.05)] border border-[var(--card-border)] focus:border-[var(--primary-color)] rounded-xl px-3 text-white text-[13px] outline-none"
+                />
               </div>
               {newEventType === 'match' && (
                 <>
